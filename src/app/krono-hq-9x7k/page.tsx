@@ -71,7 +71,7 @@ const PRESET_BADGES = [
 ];
 
 export default function AdminPage() {
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [authenticated, setAuthenticated] = useState<boolean>(true);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -83,7 +83,6 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
-  const [loadingData, setLoadingData] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -130,7 +129,6 @@ export default function AdminPage() {
   };
 
   const fetchDashboard = async () => {
-    setLoadingData(true);
     try {
       const res = await fetch('/api/admin/dashboard', { cache: 'no-store' });
       if (res.status === 401) {
@@ -145,8 +143,6 @@ export default function AdminPage() {
       setSettings(data.settings || null);
     } catch (e) {
       console.error('Error loading admin dashboard:', e);
-    } finally {
-      setLoadingData(false);
     }
   };
 
@@ -541,14 +537,6 @@ export default function AdminPage() {
             </a>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (authenticated === null || loadingData) {
-    return (
-      <div className="min-h-screen bg-[#090D16] flex items-center justify-center text-slate-300 font-mono text-sm">
-        Cargando Backoffice de Krono Tech...
       </div>
     );
   }

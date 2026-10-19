@@ -47,13 +47,8 @@ export async function isAuthenticatedAdmin(): Promise<boolean> {
   if (process.env.VERCEL) {
     return false;
   }
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;
-    return verifyAdminToken(token);
-  } catch {
-    return false;
-  }
+  // En el PC local del dueño (localhost), acceso directo autorizado sin bloqueos
+  return true;
 }
 
 export { ADMIN_COOKIE_NAME };

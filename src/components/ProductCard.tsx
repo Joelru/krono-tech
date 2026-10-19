@@ -30,7 +30,6 @@ export function ProductCard({
 
   const discount = calculateDiscountPercent(product.sale_price, product.compare_price);
   const primaryImage = product.images?.[0] || '/brand/logo-full.png';
-  const secondaryImage = product.images?.[1] || primaryImage;
   const topSpecs = (product.specs || []).slice(0, 2);
 
   const handleQuickSound = (e: React.MouseEvent) => {
@@ -54,10 +53,10 @@ export function ProductCard({
   return (
     <article
       onClick={() => onSelectProduct(product)}
-      className="group relative rounded-2xl bg-[#111827] border border-white/[0.08] hover:border-sky-400/40 overflow-hidden flex flex-col justify-between transition-colors duration-150 cursor-pointer"
+      className="group relative rounded-2xl bg-[#111827] border border-white/[0.08] hover:border-sky-400/45 overflow-hidden flex flex-col justify-between transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_14px_34px_-12px_rgba(56,189,248,0.2)] cursor-pointer"
     >
       <div>
-        {/* Image Container with pure CSS secondary image hover */}
+        {/* Image Container with smooth subtle zoom-in on primary image */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#0B0F19]">
           {/* Dynamic Top Badge: Stock Type */}
           <div className="absolute top-2.5 left-2.5 z-10 flex flex-wrap items-center gap-1.5 max-w-[78%]">
@@ -77,35 +76,20 @@ export function ProductCard({
           {/* Automatic Discount Tag */}
           {discount > 0 && (
             <div className="absolute top-2.5 right-2.5 z-10">
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-sky-400 text-slate-950">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-sky-400 text-slate-950 shadow-sm">
                 -{discount}%
               </span>
             </div>
           )}
 
-          {/* Primary Photo */}
+          {/* Primary Photo with subtle GPU zoom-in on hover */}
           <img
             src={primaryImage}
             alt={product.title}
             loading="lazy"
             decoding="async"
-            className={`w-full h-full object-cover ${
-              secondaryImage !== primaryImage
-                ? ' transition-opacity duration-200 group-hover:opacity-0'
-                : ''
-            }`}
+            className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 will-change-transform"
           />
-
-          {/* Secondary Hover Photo (Pure CSS, zero JS state listeners) */}
-          {secondaryImage !== primaryImage && (
-            <img
-              src={secondaryImage}
-              alt={`${product.title} vista secundaria`}
-              loading="lazy"
-              decoding="async"
-              className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-            />
-          )}
 
           {/* Optional Sound Test Button */}
           {product.audio_Switch_type && (
@@ -181,7 +165,7 @@ export function ProductCard({
               e.stopPropagation();
               onBuyNow(product);
             }}
-            className="col-span-9 py-2.5 px-3 rounded-xl bg-white hover:bg-sky-400 active:bg-sky-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            className="col-span-9 py-2.5 px-3 rounded-xl bg-white hover:bg-sky-400 active:bg-sky-400 active:scale-[0.98] text-slate-950 font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Banknote className="w-4 h-4 shrink-0" />
             <span>Pedir Ahora</span>
@@ -190,7 +174,7 @@ export function ProductCard({
           <button
             type="button"
             onClick={handleQuickAdd}
-            className="col-span-3 py-2.5 rounded-xl bg-[#1E293B] hover:bg-[#29374d] text-white border border-white/10 flex items-center justify-center transition-colors cursor-pointer"
+            className="col-span-3 py-2.5 rounded-xl bg-[#1E293B] hover:bg-[#29374d] active:scale-[0.96] text-white border border-white/10 flex items-center justify-center transition-all duration-150 cursor-pointer"
             title="Agregar al carrito"
           >
             {added ? (

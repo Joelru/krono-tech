@@ -186,115 +186,118 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#090D16] text-slate-100 flex flex-col selection:bg-sky-400 selection:text-slate-950 pb-20 sm:pb-0">
-      {/* 3.1. TOP BAR FIJO CONFIGURABLE DESDE EL ADMIN */}
-      <div className="sticky top-0 z-40 w-full bg-[#0B1325] border-b border-sky-400/20 px-3 py-2 text-center">
-        <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-[11px] sm:text-xs font-mono tracking-wide text-sky-200">
-          <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shrink-0" />
-          <p className="truncate sm:whitespace-normal font-medium">
-            {settings?.top_bar_text ||
-              '🚚 Envíos Gratis a toda Colombia | Pagas en efectivo al recibir en tu casa'}
-          </p>
+      {/* 3.1. BLOQUE SUPERIOR FIJO UNIFICADO (TOP BAR + HEADER SIN ESPACIOS TRANSPARENTES AL SCROLLEAR) */}
+      <div className="sticky top-0 z-40 w-full bg-[#090D16] shadow-[0_10px_30px_rgba(0,0,0,0.75)]">
+        {/* TOP BAR FIJO CONFIGURABLE DESDE EL ADMIN */}
+        <div className="w-full bg-[#0B1325] border-b border-sky-400/20 px-3 py-2 text-center">
+          <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-[11px] sm:text-xs font-mono tracking-wide text-sky-200">
+            <span className="h-2 w-2 rounded-full bg-sky-400 animate-pulse shrink-0 shadow-[0_0_8px_#38BDF8]" />
+            <p className="truncate sm:whitespace-normal font-medium">
+              {settings?.top_bar_text ||
+                '🚚 Envíos Gratis a toda Colombia | Pagas en efectivo al recibir en tu casa'}
+            </p>
+          </div>
         </div>
+
+        {/* HEADER PRINCIPAL (Mobile-First, Logo Separado, Buscador y Carrito) */}
+        <header className="w-full bg-[#090D16] border-b border-white/[0.08]">
+          <div className="max-w-7xl mx-auto px-3.5 sm:px-6 h-15 sm:h-20 flex items-center justify-between gap-2.5 sm:gap-6">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory('all');
+                setSearchQuery('');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="text-left focus:outline-none cursor-pointer shrink-0 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <BrandLogo variant="horizontal" size="md" />
+            </button>
+
+            {/* Real-Time Search Bar (Desktop) */}
+            <div className="hidden md:flex flex-1 max-w-md relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar producto o especificación..."
+                className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-[#111827] border border-white/[0.08] focus:border-sky-400 focus:outline-none text-xs font-mono text-white placeholder:text-slate-500 transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Right Actions */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => setOnlyLocalStock((prev) => !prev)}
+                className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border transition-all duration-150 active:scale-[0.97] cursor-pointer ${
+                  onlyLocalStock
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                    : 'bg-[#111827] text-slate-300 border-white/[0.08] hover:border-white/20'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                Entrega Hoy
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsCheckoutOpen(true)}
+                className="relative inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-sky-400 active:bg-sky-400 active:scale-[0.97] text-slate-950 font-bold text-xs uppercase tracking-wider transition-all duration-150 cursor-pointer"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>Pedido</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-slate-950 text-sky-400 font-mono text-[11px]">
+                  {totalCartItems}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Search Bar */}
+          <div className="md:hidden px-3.5 pb-2.5 bg-[#090D16]">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar periférico o especificación..."
+                className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-[#111827] border border-white/[0.08] focus:border-sky-400 focus:outline-none text-xs font-mono text-white placeholder:text-slate-500 transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
       </div>
 
-      {/* HEADER PRINCIPAL (Mobile-First, Logo Separado, Buscador y Carrito) */}
-      <header className="sticky top-[33px] sm:top-[37px] z-30 w-full bg-[#090D16] border-b border-white/[0.08]">
-        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 h-15 sm:h-20 flex items-center justify-between gap-2.5 sm:gap-6">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCategory('all');
-              setSearchQuery('');
-              window.scrollTo({ top: 0 });
-            }}
-            className="text-left focus:outline-none cursor-pointer shrink-0"
-          >
-            <BrandLogo variant="horizontal" size="md" />
-          </button>
-
-          {/* Real-Time Search Bar (Desktop) */}
-          <div className="hidden md:flex flex-1 max-w-md relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar producto o especificación..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-[#111827] border border-white/[0.08] focus:border-sky-400 focus:outline-none text-xs font-mono text-white placeholder:text-slate-500"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Right Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => setOnlyLocalStock((prev) => !prev)}
-              className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border transition-colors cursor-pointer ${
-                onlyLocalStock
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
-                  : 'bg-[#111827] text-slate-300 border-white/[0.08] hover:border-white/20'
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5 text-emerald-400" />
-              Entrega Hoy
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsCheckoutOpen(true)}
-              className="relative inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white hover:bg-sky-400 active:bg-sky-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>Pedido</span>
-              <span className="px-1.5 py-0.5 rounded-md bg-slate-950 text-sky-400 font-mono text-[11px]">
-                {totalCartItems}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Search Bar */}
-        <div className="md:hidden px-3.5 pb-2.5">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar periférico o especificación..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-[#111827] border border-white/[0.08] focus:border-sky-400 focus:outline-none text-xs font-mono text-white placeholder:text-slate-500"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* 3.2. HERO SECTION (Limpio y directo, sin animaciones innecesarias) */}
+      {/* 3.2. HERO SECTION (Micro-interacciones ligeras por GPU) */}
       {!searchQuery && selectedCategory === 'all' && (
-        <section className="relative border-b border-white/[0.07] bg-[#0B0F19]">
+        <section className="relative border-b border-white/[0.07] bg-[#0B0F19] overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7 sm:py-12 relative z-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 lg:gap-10 items-center">
               {/* Hero Left Copy */}
               <div className="lg:col-span-7 space-y-4 sm:space-y-5">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-400/10 border border-sky-400/25">
-                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
                   <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-widest text-sky-300 font-semibold">
                     {settings?.hero_banner_config?.badge_text ||
                       'KRONO TECH // HARDWARE & PERIFÉRICOS PRO'}
@@ -315,7 +318,7 @@ export default function HomePage() {
 
                 {/* Star Product Box if at least 1 product exists */}
                 {heroProduct && (
-                  <div className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-white/10 max-w-xl space-y-3.5">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-white/10 hover:border-sky-400/35 transition-colors max-w-xl space-y-3.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 block">
@@ -348,19 +351,19 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => handleBuyNow(heroProduct, 1)}
-                          className="flex-1 sm:flex-initial py-3.5 px-5 rounded-xl bg-white hover:bg-sky-400 active:bg-sky-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                          className="group/btn flex-1 sm:flex-initial py-3.5 px-5 rounded-xl bg-white hover:bg-sky-400 active:bg-sky-400 active:scale-[0.98] text-slate-950 font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
                         >
                           <span>
                             {settings?.hero_banner_config?.cta_primary_text ||
                               'Pedir Ahora — Pago en Casa'}
                           </span>
-                          <ArrowRight className="w-4 h-4 shrink-0" />
+                          <ArrowRight className="w-4 h-4 shrink-0 transition-transform duration-200 group-hover/btn:translate-x-1" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setActiveProduct(heroProduct)}
-                          className="py-3.5 px-4 rounded-xl bg-[#1E293B] hover:bg-[#283548] text-slate-200 font-mono text-xs border border-white/10 transition-colors cursor-pointer shrink-0"
+                          className="py-3.5 px-4 rounded-xl bg-[#1E293B] hover:bg-[#283548] active:scale-[0.97] text-slate-200 font-mono text-xs border border-white/10 transition-all duration-150 cursor-pointer shrink-0"
                         >
                           Ver
                         </button>
@@ -375,7 +378,7 @@ export default function HomePage() {
                 {heroProduct ? (
                   <div
                     onClick={() => setActiveProduct(heroProduct)}
-                    className="relative rounded-2xl overflow-hidden bg-[#111827] border border-white/15 cursor-pointer"
+                    className="group relative rounded-2xl overflow-hidden bg-[#111827] border border-white/15 hover:border-sky-400/45 transition-all duration-300 hover:shadow-[0_16px_40px_-12px_rgba(56,189,248,0.22)] cursor-pointer"
                   >
                     <div className="aspect-[4/3] w-full overflow-hidden relative">
                       <img
@@ -385,7 +388,7 @@ export default function HomePage() {
                           '/brand/logo-full.png'
                         }
                         alt={heroProduct.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 will-change-transform"
                       />
 
                       <div className="absolute top-3.5 left-3.5">
