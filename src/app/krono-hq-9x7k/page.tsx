@@ -84,6 +84,7 @@ export default function AdminPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [loadingData, setLoadingData] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   // Orders Filter State
@@ -445,6 +446,23 @@ export default function AdminPage() {
     }
   };
 
+  const handlePublishToWeb = async () => {
+    setPublishing(true);
+    try {
+      const res = await fetch('/api/admin/publish', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        notify(data.message || 'Catálogo publicado en https://kronotech.vercel.app/');
+      } else {
+        notify(data.error || 'Error al publicar en la web');
+      }
+    } catch {
+      notify('Error de conexión al publicar en la web');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   // Real-time Profit Calculation inside Product Editor
   const unitNetProfit =
     Number(formSalePrice || 0) - Number(formSupplierCost || 0) - Number(formShippingCost || 0);
@@ -543,17 +561,28 @@ export default function AdminPage() {
         <div className="flex items-center gap-3">
           <BrandLogo variant="horizontal" size="sm" />
           <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono bg-sky-400/15 text-sky-300 border border-sky-400/30">
-            CMS & RENTABILIDAD PRIVADA
+            BASE DE DATOS LOCAL (PC)
           </span>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <button
+            type="button"
+            onClick={handlePublishToWeb}
+            disabled={publishing}
+            title="Sube los productos y cambios guardados en tu PC hacia https://kronotech.vercel.app/"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 text-slate-950 font-bold text-xs uppercase tracking-wider transition cursor-pointer disabled:opacity-50"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>{publishing ? 'Publicando...' : 'Publicar en Web'}</span>
+          </button>
+
           <Link
             href="/"
             target="_blank"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#111827] hover:bg-[#1E293B] text-xs font-mono text-slate-200 border border-white/10 transition"
           >
-            <span className="hidden xs:inline">Ver Tienda</span>
+            <span className="hidden sm:inline">Ver Tienda</span>
             <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
           </Link>
 
