@@ -7,6 +7,9 @@ import {
 } from '@/lib/auth';
 
 export async function GET() {
+  if (process.env.VERCEL) {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
   const authenticated = await isAuthenticatedAdmin();
   return NextResponse.json({
     authenticated,
@@ -15,6 +18,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (process.env.VERCEL) {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
   try {
     const { email, password } = await req.json();
 

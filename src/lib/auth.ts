@@ -44,6 +44,9 @@ export function verifyAdminToken(token: string | undefined): boolean {
 }
 
 export async function isAuthenticatedAdmin(): Promise<boolean> {
+  if (process.env.VERCEL) {
+    return false;
+  }
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value;

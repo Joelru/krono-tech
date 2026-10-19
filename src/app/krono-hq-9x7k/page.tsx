@@ -531,12 +531,14 @@ export default function AdminPage() {
           </form>
 
           <div className="text-center pt-1">
-            <Link
-              href="/"
+            <a
+              href="https://kronotech.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-xs font-mono text-slate-400 hover:text-sky-400 transition"
             >
-              ← Volver a la tienda
-            </Link>
+              ← Ir a la tienda online (kronotech.vercel.app)
+            </a>
           </div>
         </div>
       </div>
@@ -577,14 +579,15 @@ export default function AdminPage() {
             <span>{publishing ? 'Publicando...' : 'Publicar en Web'}</span>
           </button>
 
-          <Link
-            href="/"
+          <a
+            href="https://kronotech.vercel.app/"
             target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#111827] hover:bg-[#1E293B] text-xs font-mono text-slate-200 border border-white/10 transition"
           >
-            <span className="hidden sm:inline">Ver Tienda</span>
+            <span className="hidden sm:inline">Ir a Tienda Online</span>
             <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
-          </Link>
+          </a>
 
           <button
             type="button"
