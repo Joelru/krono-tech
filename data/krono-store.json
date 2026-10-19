@@ -1,0 +1,74 @@
+{
+  "categories": [
+    {
+      "id": "cat-teclados",
+      "name": "Teclados Mecánicos",
+      "slug": "teclados-mecanicos",
+      "icon": "Keyboard",
+      "description": "Teclados mecánicos, magnéticos y custom de alto rendimiento."
+    },
+    {
+      "id": "cat-mouses",
+      "name": "Mouses",
+      "slug": "mouses",
+      "icon": "Mouse",
+      "description": "Mouses competitivos ultraligeros e inalámbricos de precisión."
+    },
+    {
+      "id": "cat-audio",
+      "name": "Audio & IEMs",
+      "slug": "audio-iems",
+      "icon": "Headphones",
+      "description": "Monitores In-Ear y diademas gamer de alta fidelidad."
+    },
+    {
+      "id": "cat-streaming",
+      "name": "Streaming & Micrófonos",
+      "slug": "streaming-microfonos",
+      "icon": "Mic",
+      "description": "Micrófonos, brazos e interfaces para creadores y streamers."
+    },
+    {
+      "id": "cat-setup",
+      "name": "Accesorios de Setup",
+      "slug": "accesorios-setup",
+      "icon": "Monitor",
+      "description": "Mousepads, soportes de monitor, cables y accesorios pro."
+    }
+  ],
+  "products": [],
+  "orders": [],
+  "settings": {
+    "id": 1,
+    "whatsapp_number": "573000000000",
+    "top_bar_text": "🚚 Envíos Gratis a toda Colombia | Pagas en efectivo al recibir en tu casa",
+    "payment_qr_info": {
+      "nequi_number": "",
+      "nequi_holder": "Krono Tech",
+      "bancolombia_account": "",
+      "bancolombia_type": "Ahorros Bancolombia",
+      "bancolombia_holder": "Krono Tech",
+      "qr_image_url": "",
+      "transfer_discount_percent": 5,
+      "transfer_benefit_text": "Descuento especial por pago anticipado + Despacho Prioritario"
+    },
+    "hero_banner_config": {
+      "badge_text": "KRONO TECH // HARDWARE & PERIFÉRICOS PRO",
+      "headline": "PRECISIÓN ABSOLUTA.",
+      "highlight_text": "CERO LATENCIA.",
+      "subheadline": "Periféricos gamer de alto rendimiento, audio y accesorios de setup en Colombia. Pago Contraentrega en la puerta de tu casa.",
+      "cta_primary_text": "Pedir Ahora — Pago en Casa",
+      "featured_product_slug": "",
+      "hero_image_url": "",
+      "spec_highlight_1": "Envío Nacional Asegurado",
+      "spec_highlight_2": "Pago Contraentrega",
+      "spec_highlight_3": "Garantía Oficial Krono Tech"
+    },
+    "shipping_config": {
+      "free_shipping_threshold": 0,
+      "default_national_shipping": 0,
+      "default_local_shipping": 0,
+      "local_city_name": "Local"
+    }
+  }
+}
