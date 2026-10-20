@@ -21,11 +21,16 @@ import {
   CheckCircle2,
   MessageCircle,
   Package,
+  Laptop,
+  Wrench,
+  Clock,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductDetailModal } from '@/components/ProductDetailModal';
 import { CheckoutModal } from '@/components/CheckoutModal';
+import { CustomPcQuoteSection } from '@/components/CustomPcQuoteSection';
+import { OptimizationServicesSection } from '@/components/OptimizationServicesSection';
 import { CartItem, Category, PublicProduct, StoreSettings } from '@/types';
 import { calculateDiscountPercent, formatCOP } from '@/lib/format';
 import { playSwitchSound } from '@/lib/sound-test';
@@ -92,6 +97,13 @@ export default function HomePage() {
     setTimeout(() => {
       setToastMessage((prev) => (prev === msg ? null : prev));
     }, 2200);
+  };
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   // Star Product for Hero Section
@@ -184,6 +196,8 @@ export default function HomePage() {
     ? calculateDiscountPercent(heroProduct.sale_price, heroProduct.compare_price)
     : 0;
 
+  const isHeroPreorder = heroProduct?.inventory_type === 'preorder';
+
   return (
     <div className="min-h-screen bg-[#090D16] text-slate-100 flex flex-col selection:bg-sky-400 selection:text-slate-950 pb-20 sm:pb-0">
       {/* 3.1. BLOQUE SUPERIOR FIJO UNIFICADO (TOP BAR + HEADER SIN ESPACIOS TRANSPARENTES AL SCROLLEAR) */}
@@ -194,14 +208,14 @@ export default function HomePage() {
             <span className="h-2 w-2 rounded-full bg-sky-400 animate-pulse shrink-0 shadow-[0_0_8px_#38BDF8]" />
             <p className="truncate sm:whitespace-normal font-medium">
               {settings?.top_bar_text ||
-                '🚚 Envíos Gratis a toda Colombia | Pagas en efectivo al recibir en tu casa'}
+                '🚚 Envíos Gratis a toda Colombia | Entrega Hoy en Ocaña (Ruta 5:00 PM) | Pago Contraentrega'}
             </p>
           </div>
         </div>
 
-        {/* HEADER PRINCIPAL (Mobile-First, Logo Separado, Buscador y Carrito) */}
+        {/* HEADER PRINCIPAL (Mobile-First, Logo Separado, Navegación Principal, Buscador y Carrito) */}
         <header className="w-full bg-[#090D16] border-b border-white/[0.08]">
-          <div className="max-w-7xl mx-auto px-3.5 sm:px-6 h-15 sm:h-20 flex items-center justify-between gap-2.5 sm:gap-6">
+          <div className="max-w-7xl mx-auto px-3.5 sm:px-6 h-15 sm:h-20 flex items-center justify-between gap-2.5 sm:gap-5">
             <button
               type="button"
               onClick={() => {
@@ -214,8 +228,37 @@ export default function HomePage() {
               <BrandLogo variant="horizontal" size="md" />
             </button>
 
+            {/* Primary Navigation Links (Desktop) */}
+            <nav className="hidden lg:flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => scrollToSection('catalogo-hardware')}
+                className="px-3 py-2 rounded-xl text-xs font-mono text-slate-300 hover:text-white hover:bg-white/5 transition cursor-pointer"
+              >
+                Catálogo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => scrollToSection('cotizador-pcs')}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-bold bg-sky-400/15 hover:bg-sky-400/25 text-sky-300 border border-sky-400/35 transition cursor-pointer"
+              >
+                <Laptop className="w-3.5 h-3.5 text-sky-400" />
+                <span>Portátiles & PCs Bajo Pedido</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => scrollToSection('servicios-ocana')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono text-slate-300 hover:text-sky-300 hover:bg-white/5 border border-transparent hover:border-white/10 transition cursor-pointer"
+              >
+                <Wrench className="w-3.5 h-3.5 text-sky-400" />
+                <span>Servicios Ocaña</span>
+              </button>
+            </nav>
+
             {/* Real-Time Search Bar (Desktop) */}
-            <div className="hidden md:flex flex-1 max-w-md relative">
+            <div className="hidden md:flex flex-1 max-w-sm relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
@@ -236,7 +279,7 @@ export default function HomePage() {
             </div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setOnlyLocalStock((prev) => !prev)}
@@ -264,9 +307,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Mobile Search Bar */}
-          <div className="md:hidden px-3.5 pb-2.5 bg-[#090D16]">
-            <div className="relative">
+          {/* Mobile Search Bar + Quick Navigation Pills */}
+          <div className="lg:hidden px-3.5 pb-2.5 bg-[#090D16] space-y-2">
+            <div className="md:hidden relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
@@ -284,6 +327,26 @@ export default function HomePage() {
                   <X className="w-4 h-4" />
                 </button>
               )}
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => scrollToSection('cotizador-pcs')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-bold bg-sky-400/15 text-sky-300 border border-sky-400/35 shrink-0"
+              >
+                <Laptop className="w-3.5 h-3.5 text-sky-400" />
+                <span>💻 Portátiles & PCs Bajo Pedido</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => scrollToSection('servicios-ocana')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono bg-[#111827] text-slate-300 border border-white/10 shrink-0"
+              >
+                <Wrench className="w-3.5 h-3.5 text-sky-400" />
+                <span>🛠️ Optimización & Upgrades (Ocaña)</span>
+              </button>
             </div>
           </div>
         </header>
@@ -313,7 +376,7 @@ export default function HomePage() {
 
                 <p className="text-xs sm:text-base text-slate-300 max-w-2xl leading-relaxed">
                   {settings?.hero_banner_config?.subheadline ||
-                    'Periféricos gamer de alto rendimiento, audio y accesorios de setup en Colombia. Pago Contraentrega en la puerta de tu casa.'}
+                    'Periféricos gamer de alto rendimiento, portátiles bajo pedido y repotenciación en Ocaña y toda Colombia. Pago Contraentrega.'}
                 </p>
 
                 {/* Star Product Box if at least 1 product exists */}
@@ -322,11 +385,18 @@ export default function HomePage() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 block">
-                          PRODUCTO ESTRELLA DESTACADO
+                          {isHeroPreorder
+                            ? '⏳ PRÓXIMO LOTE EN CAMINO — SEPARA CON $0'
+                            : 'PRODUCTO ESTRELLA DESTACADO'}
                         </span>
                         <h2 className="text-base sm:text-lg font-bold text-white truncate">
                           {heroProduct.title}
                         </h2>
+                        {isHeroPreorder && heroProduct.estimated_arrival_date && (
+                          <span className="text-[11px] font-mono text-amber-300 block mt-0.5">
+                            📅 {heroProduct.estimated_arrival_date}
+                          </span>
+                        )}
                       </div>
                       {heroDiscount > 0 && (
                         <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-sky-400 text-slate-950 shrink-0">
@@ -354,8 +424,10 @@ export default function HomePage() {
                           className="group/btn flex-1 sm:flex-initial py-3.5 px-5 rounded-xl bg-white hover:bg-sky-400 active:bg-sky-400 active:scale-[0.98] text-slate-950 font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer"
                         >
                           <span>
-                            {settings?.hero_banner_config?.cta_primary_text ||
-                              'Pedir Ahora — Pago en Casa'}
+                            {isHeroPreorder
+                              ? 'Reservar Unidad (Pagas cuando llegue)'
+                              : settings?.hero_banner_config?.cta_primary_text ||
+                                'Pedir Ahora — Pago en Casa'}
                           </span>
                           <ArrowRight className="w-4 h-4 shrink-0 transition-transform duration-200 group-hover/btn:translate-x-1" />
                         </button>
@@ -371,6 +443,18 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
+
+                {/* Quick Hero Shortcut to Custom PC / Laptop Quote Wizard */}
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection('cotizador-pcs')}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-400/10 hover:bg-sky-400/20 text-sky-300 border border-sky-400/30 text-xs font-mono font-semibold transition cursor-pointer"
+                  >
+                    <Laptop className="w-4 h-4 text-sky-400" />
+                    <span>¿Buscas un Portátil o PC Gamer a medida? Cotízalo aquí →</span>
+                  </button>
+                </div>
               </div>
 
               {/* Hero Right Visual */}
@@ -392,12 +476,22 @@ export default function HomePage() {
                       />
 
                       <div className="absolute top-3.5 left-3.5">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/90 text-emerald-300 border border-emerald-400/35">
-                          <Zap className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
-                          {heroProduct.inventory_type === 'local'
-                            ? '⚡ Entrega Hoy (Local)'
-                            : '🚚 Envío Gratis Contraentrega'}
-                        </span>
+                        {heroProduct.inventory_type === 'local' ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/90 text-emerald-300 border border-emerald-400/35">
+                            <Zap className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
+                            ⚡ En Stock (Entrega hoy en Ocaña - Ruta 5:00 PM)
+                          </span>
+                        ) : isHeroPreorder ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/95 text-amber-300 border border-amber-400/40">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            ⏳ Próximo Lote en Camino (Separa el tuyo con $0)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/90 text-sky-300 border border-sky-400/35">
+                            <Truck className="w-3.5 h-3.5 text-sky-400" />
+                            🚚 Envío Nacional (2 a 4 días)
+                          </span>
+                        )}
                       </div>
 
                       {heroProduct.audio_Switch_type && (
@@ -427,7 +521,7 @@ export default function HomePage() {
                   <div className="rounded-2xl bg-[#111827] border border-white/[0.08] p-10 flex flex-col items-center justify-center text-center min-h-[240px]">
                     <BrandLogo variant="stacked" size="lg" />
                     <p className="text-xs font-mono uppercase tracking-widest text-slate-400 mt-5">
-                      HIGH PERFORMANCE GAMING GEAR // COLOMBIA
+                      HIGH PERFORMANCE GAMING GEAR // OCAÑA & COLOMBIA
                     </p>
                   </div>
                 )}
@@ -438,7 +532,10 @@ export default function HomePage() {
       )}
 
       {/* 3.2. NAVEGACIÓN DE CATEGORÍAS Y CATÁLOGO */}
-      <section className="max-w-7xl mx-auto w-full px-3.5 sm:px-6 pt-6 sm:pt-8 pb-16 flex-1">
+      <section
+        id="catalogo-hardware"
+        className="scroll-mt-28 max-w-7xl mx-auto w-full px-3.5 sm:px-6 pt-6 sm:pt-8 pb-12"
+      >
         {/* Horizontal Scrollable Category Pills */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 mb-6">
           <div className="flex items-center gap-2 overflow-x-auto pb-1.5 md:pb-0 no-scrollbar -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
@@ -473,6 +570,15 @@ export default function HomePage() {
                 </button>
               );
             })}
+
+            <button
+              type="button"
+              onClick={() => scrollToSection('cotizador-pcs')}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-mono uppercase tracking-wider shrink-0 border bg-sky-400/10 text-sky-300 border-sky-400/35 hover:bg-sky-400/20 transition-colors cursor-pointer"
+            >
+              <Laptop className="w-3.5 h-3.5 text-sky-400" />
+              Portátiles & PCs Bajo Pedido
+            </button>
           </div>
 
           {products.length > 0 && (
@@ -557,12 +663,20 @@ export default function HomePage() {
             ))}
           </div>
         )}
+      </section>
 
-        {/* TRUST SECTION */}
-        <div className="mt-14 rounded-2xl bg-[#111827] border border-white/[0.08] p-5 sm:p-8">
+      {/* 1. NUEVA SECCIÓN: "PORTÁTILES & PCs GAMER A MEDIDA" (COTIZADOR INTERACTIVO DE 4 PASOS) */}
+      <CustomPcQuoteSection whatsappNumber={settings?.whatsapp_number || '573000000000'} />
+
+      {/* 3. SECCIÓN: "OPTIMIZACIÓN Y REPOTENCIACIÓN DE EQUIPOS (OCAÑA)" */}
+      <OptimizationServicesSection whatsappNumber={settings?.whatsapp_number || '573000000000'} />
+
+      {/* TRUST SECTION */}
+      <section className="max-w-7xl mx-auto w-full px-3.5 sm:px-6 py-12">
+        <div className="rounded-2xl bg-[#111827] border border-white/[0.08] p-5 sm:p-8">
           <div className="max-w-2xl mb-6">
             <span className="text-[11px] font-mono uppercase tracking-widest text-sky-400">
-              COMPRA SEGURA EN COLOMBIA
+              COMPRA SEGURA EN OCAÑA Y COLOMBIA
             </span>
             <h2 className="text-xl sm:text-2xl font-bold text-white mt-1">
               Recibe primero en tus manos. Paga en efectivo al recibir.
@@ -582,9 +696,11 @@ export default function HomePage() {
 
             <div className="p-4 rounded-xl bg-[#090D16] border border-white/[0.06] space-y-1.5">
               <Zap className="w-5 h-5 text-emerald-400" />
-              <h3 className="text-xs sm:text-sm font-bold text-white">Despacho Ágil</h3>
+              <h3 className="text-xs sm:text-sm font-bold text-white">
+                Ruta Diaria Ocaña (5:00 PM)
+              </h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Stock local de entrega rápida y envíos nacionales por Interrapidísimo y Envía.
+                Entrega gratis en Ocaña en nuestra ruta vespertina y envíos por Interrapidísimo y Envía.
               </p>
             </div>
 
@@ -592,7 +708,7 @@ export default function HomePage() {
               <ShieldCheck className="w-5 h-5 text-sky-400" />
               <h3 className="text-xs sm:text-sm font-bold text-white">Garantía Krono Tech</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Respaldo directo por WhatsApp y verificación de calidad en cada periférico.
+                Respaldo directo por WhatsApp y verificación de calidad en cada equipo y periférico.
               </p>
             </div>
 
@@ -613,9 +729,9 @@ export default function HomePage() {
           <BrandLogo variant="horizontal" size="sm" />
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-400 font-mono">
-            <span>ENVÍOS POR INTERRAPIDÍSIMO & ENVÍA</span>
+            <span>OCAÑA (RUTA DIARIA 5PM) & COLOMBIA</span>
             <span>•</span>
-            <span>PAGO CONTRAENTREGA COLOMBIA</span>
+            <span>ENVÍOS POR INTERRAPIDÍSIMO & ENVÍA</span>
             <span>•</span>
             <span>© {new Date().getFullYear()} KRONO TECH</span>
           </div>
@@ -648,7 +764,7 @@ export default function HomePage() {
       {settings?.whatsapp_number && settings.whatsapp_number !== '573000000000' && (
         <a
           href={`https://wa.me/${settings.whatsapp_number.replace(/\D/g, '')}?text=${encodeURIComponent(
-            '¡Hola Krono Tech! 👋 Quiero información sobre un producto de la tienda.'
+            '¡Hola Krono Tech! 👋 Quiero información sobre un producto o cotización de la tienda.'
           )}`}
           target="_blank"
           rel="noopener noreferrer"

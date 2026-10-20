@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  Clock,
 } from 'lucide-react';
 import { PublicProduct } from '@/types';
 import { calculateDiscountPercent, formatCOP } from '@/lib/format';
@@ -74,6 +75,7 @@ export function ProductDetailModal({
   const discount = calculateDiscountPercent(product.sale_price, product.compare_price);
   const images = product.images?.length > 0 ? product.images : ['/brand/logo-full.png'];
   const hasSoundTest = Boolean(product.audio_Switch_type);
+  const isPreorder = product.inventory_type === 'preorder';
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -141,12 +143,17 @@ export function ProductDetailModal({
                 {product.inventory_type === 'local' ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/90 text-emerald-300 border border-emerald-400/40">
                     <Zap className="w-3 h-3 fill-emerald-400 text-emerald-400" />
-                    ⚡ Entrega Hoy (Local)
+                    ⚡ En Stock (Entrega hoy en Ocaña - Ruta 5:00 PM)
+                  </span>
+                ) : isPreorder ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/95 text-amber-300 border border-amber-400/45">
+                    <Clock className="w-3 h-3 text-amber-400" />
+                    ⏳ Próximo Lote en Camino (Separa el tuyo con $0)
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/90 text-sky-300 border border-sky-400/40">
                     <Truck className="w-3 h-3 text-sky-400" />
-                    🚚 Envío Gratis Contraentrega
+                    🚚 Envío Nacional (2 a 4 días)
                   </span>
                 )}
 
@@ -291,14 +298,39 @@ export function ProductDetailModal({
                     {b}
                   </span>
                 ))}
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-                  ● Disponible ({product.stock} und)
-                </span>
+                {isPreorder ? (
+                  <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono text-amber-300 bg-amber-500/15 border border-amber-400/35">
+                    ⏳ En Tránsito ({product.stock} cupos para reservar)
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                    ● Disponible ({product.stock} und)
+                  </span>
+                )}
               </div>
 
               <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-white leading-snug">
                 {product.title}
               </h2>
+
+              {/* Preorder Notice Box */}
+              {isPreorder && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-400/35 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-mono font-bold text-amber-300">
+                    <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>PRÓXIMO LOTE EN CAMINO — SEPARA EL TUYO CON $0</span>
+                  </div>
+                  {product.estimated_arrival_date && (
+                    <p className="text-xs font-mono text-white">
+                      📅 Fecha estimada: <strong>{product.estimated_arrival_date}</strong>
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Separas tu unidad en la lista prioritaria sin pagar por adelantado. Cancelas
+                    únicamente cuando llegue el lote y recibas el producto.
+                  </p>
+                </div>
+              )}
 
               {/* Price & Quantity Block */}
               <div className="p-3.5 sm:p-4 rounded-2xl bg-[#111827] border border-white/[0.08] flex flex-wrap items-center justify-between gap-3">
@@ -314,7 +346,9 @@ export function ProductDetailModal({
                     )}
                   </div>
                   <p className="text-[11px] text-emerald-400 mt-1">
-                    ✓ Pagas en efectivo al recibir en tu casa
+                    {isPreorder
+                      ? '✓ Separas hoy con $0 — Pagas únicamente cuando llegue'
+                      : '✓ Pagas en efectivo al recibir en tu casa'}
                   </p>
                 </div>
 
@@ -345,10 +379,23 @@ export function ProductDetailModal({
                 <button
                   type="button"
                   onClick={() => onBuyNow(product, quantity)}
-                  className="col-span-8 py-4 px-6 rounded-xl bg-white hover:bg-sky-400 text-slate-950 font-bold text-sm uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className={`col-span-8 py-4 px-5 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer ${
+                    isPreorder
+                      ? 'bg-sky-400 hover:bg-cyan-300 text-slate-950 shadow-[0_0_20px_rgba(56,189,248,0.3)]'
+                      : 'bg-white hover:bg-sky-400 text-slate-950'
+                  }`}
                 >
-                  <Banknote className="w-5 h-5" />
-                  Pedir Ahora — Pago en Casa
+                  {isPreorder ? (
+                    <>
+                      <Clock className="w-5 h-5 shrink-0" />
+                      <span>Reservar Unidad (Pagas cuando llegue)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Banknote className="w-5 h-5 shrink-0" />
+                      <span>Pedir Ahora — Pago en Casa</span>
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -393,10 +440,10 @@ export function ProductDetailModal({
                 <div className="p-2.5 sm:p-3 rounded-xl bg-[#111827] border border-white/[0.06] flex flex-col items-center text-center gap-1">
                   <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-sky-400" />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-white leading-tight">
-                    Envío Seguro
+                    Ocaña & Nacional
                   </span>
                   <span className="text-[9px] sm:text-[10px] text-slate-400 leading-tight">
-                    Interrapidísimo / Envía
+                    Ruta 5PM / Envío 2-4 días
                   </span>
                 </div>
               </div>
@@ -447,7 +494,7 @@ export function ProductDetailModal({
         <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] bg-[#090D16] border-t border-white/15 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <span className="block text-[10px] font-mono uppercase text-sky-400">
-              Total ({quantity} {quantity === 1 ? 'und' : 'unds'})
+              {isPreorder ? 'Reserva $0 hoy' : `Total (${quantity} und)`}
             </span>
             <span className="text-base font-mono font-bold text-white truncate block">
               {formatCOP(product.sale_price * quantity)}
@@ -470,10 +517,23 @@ export function ProductDetailModal({
           <button
             type="button"
             onClick={() => onBuyNow(product, quantity)}
-            className="flex-1 py-3.5 px-4 rounded-xl bg-white active:bg-sky-400 text-slate-950 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5"
+            className={`flex-1 py-3.5 px-3 rounded-xl font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 ${
+              isPreorder
+                ? 'bg-sky-400 active:bg-cyan-300 text-slate-950'
+                : 'bg-white active:bg-sky-400 text-slate-950'
+            }`}
           >
-            <Banknote className="w-4 h-4 shrink-0" />
-            <span>Pedir Ahora - Pago en Casa</span>
+            {isPreorder ? (
+              <>
+                <Clock className="w-4 h-4 shrink-0" />
+                <span className="truncate">Reservar Unidad (Pagas cuando llegue)</span>
+              </>
+            ) : (
+              <>
+                <Banknote className="w-4 h-4 shrink-0" />
+                <span>Pedir Ahora - Pago en Casa</span>
+              </>
+            )}
           </button>
         </div>
       </div>

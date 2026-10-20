@@ -2,11 +2,14 @@ import path from 'path';
 import fs from 'fs';
 import {
   Category,
+  CustomQuote,
   Order,
   OrderItem,
   OrderStatus,
   Product,
   PublicProduct,
+  QuoteEquipmentType,
+  QuoteStatus,
   StoreSettings,
 } from '@/types';
 
@@ -14,6 +17,7 @@ interface DatabaseState {
   categories: Category[];
   products: Product[];
   orders: Order[];
+  custom_quotes: CustomQuote[];
   settings: StoreSettings;
 }
 
@@ -68,7 +72,7 @@ function getInitialDefaultState(): DatabaseState {
     id: 1,
     whatsapp_number: '573000000000',
     top_bar_text:
-      '🚚 Envíos Gratis a toda Colombia | Pagas en efectivo al recibir en tu casa',
+      '🚚 Envíos Gratis a toda Colombia | Entrega Hoy en Ocaña (Ruta 5:00 PM) | Pago Contraentrega',
     payment_qr_info: {
       nequi_number: '',
       nequi_holder: 'Krono Tech',
@@ -84,7 +88,7 @@ function getInitialDefaultState(): DatabaseState {
       headline: 'PRECISIÓN ABSOLUTA.',
       highlight_text: 'CERO LATENCIA.',
       subheadline:
-        'Periféricos gamer de alto rendimiento, audio y accesorios de setup en Colombia. Pago Contraentrega en la puerta de tu casa.',
+        'Periféricos gamer de alto rendimiento, portátiles a medida y repotenciación en Ocaña y toda Colombia. Pago Contraentrega.',
       cta_primary_text: 'Pedir Ahora — Pago en Casa',
       featured_product_slug: '',
       hero_image_url: '',
@@ -96,7 +100,7 @@ function getInitialDefaultState(): DatabaseState {
       free_shipping_threshold: 0,
       default_national_shipping: 0,
       default_local_shipping: 0,
-      local_city_name: 'Local',
+      local_city_name: 'Ocaña',
     },
   };
 
@@ -104,12 +108,27 @@ function getInitialDefaultState(): DatabaseState {
     categories,
     products: [],
     orders: [],
+    custom_quotes: [],
     settings,
+  };
+}
+
+function normalizeState(rawState: Partial<DatabaseState>): DatabaseState {
+  const defaults = getInitialDefaultState();
+  return {
+    categories: Array.isArray(rawState.categories) ? rawState.categories : defaults.categories,
+    products: Array.isArray(rawState.products) ? rawState.products : [],
+    orders: Array.isArray(rawState.orders) ? rawState.orders : [],
+    custom_quotes: Array.isArray(rawState.custom_quotes) ? rawState.custom_quotes : [],
+    settings: rawState.settings ? { ...defaults.settings, ...rawState.settings } : defaults.settings,
   };
 }
 
 function loadState(): DatabaseState {
   if (globalForStore.kronoStoreState) {
+    if (!Array.isArray(globalForStore.kronoStoreState.custom_quotes)) {
+      globalForStore.kronoStoreState.custom_quotes = [];
+    }
     return globalForStore.kronoStoreState;
   }
 
@@ -117,7 +136,7 @@ function loadState(): DatabaseState {
   if (process.env.VERCEL && fs.existsSync(vercelTmpPath)) {
     try {
       const raw = fs.readFileSync(vercelTmpPath, 'utf8');
-      globalForStore.kronoStoreState = JSON.parse(raw);
+      globalForStore.kronoStoreState = normalizeState(JSON.parse(raw));
       return globalForStore.kronoStoreState!;
     } catch {
       // fall through
@@ -128,14 +147,14 @@ function loadState(): DatabaseState {
   if (fs.existsSync(localJsonPath)) {
     try {
       const raw = fs.readFileSync(localJsonPath, 'utf8');
-      globalForStore.kronoStoreState = JSON.parse(raw);
+      globalForStore.kronoStoreState = normalizeState(JSON.parse(raw));
       return globalForStore.kronoStoreState!;
     } catch {
       // fall through
     }
   }
 
-  // 3. Initialize clean production state (0 products, 0 orders)
+  // 3. Initialize clean production state
   const initial = getInitialDefaultState();
   globalForStore.kronoStoreState = initial;
   persistState(initial);
@@ -247,6 +266,10 @@ export function createProduct(data: Omit<Product, 'id' | 'created_at'>): Product
     supplier_cost: Number(data.supplier_cost || 0),
     estimated_shipping_cost: Number(data.estimated_shipping_cost || 0),
     stock: Number(data.stock || 0),
+    estimated_arrival_date:
+      data.inventory_type === 'preorder'
+        ? String(data.estimated_arrival_date || '').trim()
+        : '',
     created_at,
   };
 
@@ -261,10 +284,20 @@ export function updateProduct(id: string, data: Partial<Product>): Product | nul
   if (index === -1) return null;
 
   const current = state.products[index];
+  const nextInventoryType = data.inventory_type ?? current.inventory_type;
+  const nextArrivalDate =
+    nextInventoryType === 'preorder'
+      ? data.estimated_arrival_date !== undefined
+        ? String(data.estimated_arrival_date).trim()
+        : current.estimated_arrival_date || ''
+      : '';
+
   const updated: Product = {
     ...current,
     ...data,
     id: current.id,
+    inventory_type: nextInventoryType,
+    estimated_arrival_date: nextArrivalDate,
     sale_price:
       data.sale_price !== undefined ? Number(data.sale_price) : current.sale_price,
     compare_price:
@@ -325,6 +358,10 @@ export function updateStoreSettings(data: Partial<StoreSettings>): StoreSettings
   return state.settings;
 }
 
+// ============================================================================
+// ORDERS (INCLUYE CAPTURA DE LEADS / CARRITOS ABANDONADOS EN CHECKOUT)
+// ============================================================================
+
 export function getAdminOrders(): Order[] {
   const state = loadState();
   return state.orders
@@ -374,14 +411,17 @@ export function createCustomerOrder(input: {
       quantity: qty,
       unit_price: product.sale_price,
       inventory_type: product.inventory_type,
+      estimated_arrival_date: product.estimated_arrival_date || '',
       frozen_supplier_cost: product.supplier_cost,
       frozen_shipping_cost: product.estimated_shipping_cost,
     });
 
-    state.products[productIdx] = {
-      ...product,
-      stock: Math.max(0, product.stock - qty),
-    };
+    if (product.inventory_type !== 'preorder') {
+      state.products[productIdx] = {
+        ...product,
+        stock: Math.max(0, product.stock - qty),
+      };
+    }
   }
 
   const discountPercent =
@@ -413,7 +453,7 @@ export function createCustomerOrder(input: {
     shipping_amount,
     total_amount,
     estimated_profit,
-    status: 'pending',
+    status: 'pending', // Guardado inmediatamente con estado "Pendiente WhatsApp"
     tracking_number: '',
     carrier: '',
     created_at,
@@ -454,4 +494,128 @@ export function deleteAdminOrder(id: string): boolean {
     return true;
   }
   return false;
+}
+
+// ============================================================================
+// CUSTOM PC & LAPTOP QUOTES (TABLA / COLECCIÓN `custom_quotes`)
+// ============================================================================
+
+export function getAdminQuotes(): CustomQuote[] {
+  const state = loadState();
+  return (state.custom_quotes || [])
+    .slice()
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+export function createCustomQuote(input: {
+  equipment_type: QuoteEquipmentType;
+  primary_uses: string[];
+  budget_range: string;
+  comments: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_city: string;
+}): CustomQuote {
+  const state = loadState();
+  if (!Array.isArray(state.custom_quotes)) {
+    state.custom_quotes = [];
+  }
+
+  const nextNumber = 101 + state.custom_quotes.length;
+  const quote_number = `COT-${nextNumber}`;
+  const id = `quote-${Date.now().toString(36)}`;
+  const created_at = new Date().toISOString();
+
+  const equipment_label =
+    input.equipment_type === 'portatil'
+      ? '💻 Portátil Nuevo'
+      : '🖥️ Armar PC de Escritorio / Gamer';
+
+  const newQuote: CustomQuote = {
+    id,
+    quote_number,
+    equipment_type: input.equipment_type,
+    equipment_label,
+    primary_uses: input.primary_uses,
+    budget_range: input.budget_range,
+    comments: (input.comments || '').trim(),
+    customer_name: input.customer_name.trim(),
+    customer_phone: input.customer_phone.replace(/\D/g, ''),
+    customer_city: input.customer_city.trim(),
+    status: 'nueva',
+    created_at,
+  };
+
+  state.custom_quotes.unshift(newQuote);
+  persistState(state);
+  return newQuote;
+}
+
+export function updateAdminQuote(
+  id: string,
+  data: Partial<Pick<CustomQuote, 'status' | 'comments'>>
+): CustomQuote | null {
+  const state = loadState();
+  if (!Array.isArray(state.custom_quotes)) {
+    state.custom_quotes = [];
+  }
+  const idx = state.custom_quotes.findIndex((q) => q.id === id);
+  if (idx === -1) return null;
+
+  const current = state.custom_quotes[idx];
+  const updated: CustomQuote = {
+    ...current,
+    status: (data.status as QuoteStatus) ?? current.status,
+    comments: data.comments ?? current.comments,
+  };
+
+  state.custom_quotes[idx] = updated;
+  persistState(state);
+  return updated;
+}
+
+export function deleteAdminQuote(id: string): boolean {
+  const state = loadState();
+  if (!Array.isArray(state.custom_quotes)) return false;
+  const initialLen = state.custom_quotes.length;
+  state.custom_quotes = state.custom_quotes.filter((q) => q.id !== id);
+  if (state.custom_quotes.length !== initialLen) {
+    persistState(state);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Merges remote orders and custom_quotes (e.g. from Vercel runtime) into local database without duplicates
+ */
+export function mergeRemoteLeads(remoteOrders: Order[], remoteQuotes: CustomQuote[]): boolean {
+  const state = loadState();
+  let changed = false;
+
+  if (Array.isArray(remoteOrders)) {
+    for (const ro of remoteOrders) {
+      if (ro?.id && !state.orders.some((o) => o.id === ro.id)) {
+        state.orders.unshift(ro);
+        changed = true;
+      }
+    }
+  }
+
+  if (!Array.isArray(state.custom_quotes)) {
+    state.custom_quotes = [];
+  }
+  if (Array.isArray(remoteQuotes)) {
+    for (const rq of remoteQuotes) {
+      if (rq?.id && !state.custom_quotes.some((q) => q.id === rq.id)) {
+        state.custom_quotes.unshift(rq);
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    persistState(state);
+  }
+  return changed;
 }

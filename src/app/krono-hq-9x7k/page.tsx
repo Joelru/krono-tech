@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
 import {
   Package,
   ShoppingCart,
@@ -27,24 +26,28 @@ import {
   X,
   CheckCircle2,
   MessageSquare,
+  Laptop,
+  MapPin,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import {
   Category,
+  CustomQuote,
   InventoryType,
   Order,
   OrderStatus,
   Product,
   ProductSpec,
+  QuoteStatus,
   StoreSettings,
 } from '@/types';
-import { buildDropiClipboardText, formatCOP, slugify } from '@/lib/format';
+import { buildDropiClipboardText, formatCOP, isOcanaCity, slugify } from '@/lib/format';
 
-type AdminTab = 'products' | 'orders' | 'settings';
+type AdminTab = 'products' | 'orders' | 'quotes' | 'settings';
 
 const STATUS_LABELS: Record<OrderStatus, { label: string; badgeClass: string }> = {
   pending: {
-    label: 'Pendiente por Confirmar (WhatsApp)',
+    label: 'Pendiente WhatsApp',
     badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-400/35',
   },
   shipped: {
@@ -58,6 +61,21 @@ const STATUS_LABELS: Record<OrderStatus, { label: string; badgeClass: string }> 
   cancelled: {
     label: 'Cancelado / Devolución',
     badgeClass: 'bg-rose-500/15 text-rose-300 border-rose-400/35',
+  },
+};
+
+const QUOTE_STATUS_LABELS: Record<QuoteStatus, { label: string; badgeClass: string }> = {
+  nueva: {
+    label: 'Nueva',
+    badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-400/40',
+  },
+  cotizacion_enviada: {
+    label: 'Cotización Enviada',
+    badgeClass: 'bg-sky-500/15 text-sky-300 border-sky-400/40',
+  },
+  cerrada_vendida: {
+    label: 'Cerrada/Vendida',
+    badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40',
   },
 };
 
@@ -77,10 +95,11 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState(false);
 
-  // Dashboard Data (Defaults to 'products' tab if catalog is empty so owner can upload right away)
+  // Dashboard Data
   const [activeTab, setActiveTab] = useState<AdminTab>('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [quotes, setQuotes] = useState<CustomQuote[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -90,6 +109,10 @@ export default function AdminPage() {
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+
+  // Quotes Filter State
+  const [quoteSearch, setQuoteSearch] = useState('');
+  const [quoteStatusFilter, setQuoteStatusFilter] = useState<string>('all');
 
   // Products Filter & Modal State
   const [productSearch, setProductSearch] = useState('');
@@ -106,7 +129,8 @@ export default function AdminPage() {
   const [formComparePrice, setFormComparePrice] = useState<string>('');
   const [formSupplierCost, setFormSupplierCost] = useState<number>(0);
   const [formShippingCost, setFormShippingCost] = useState<number>(0);
-  const [formInventoryType, setFormInventoryType] = useState<InventoryType>('dropi');
+  const [formInventoryType, setFormInventoryType] = useState<InventoryType>('local');
+  const [formEstimatedArrivalDate, setFormEstimatedArrivalDate] = useState('');
   const [formDropiUrl, setFormDropiUrl] = useState('');
   const [formStock, setFormStock] = useState<number>(10);
   const [formIsActive, setFormIsActive] = useState(true);
@@ -139,6 +163,7 @@ export default function AdminPage() {
       setAuthenticated(true);
       setProducts(data.products || []);
       setOrders(data.orders || []);
+      setQuotes(data.quotes || []);
       setCategories(data.categories || []);
       setSettings(data.settings || null);
     } catch (e) {
@@ -186,13 +211,15 @@ export default function AdminPage() {
     const monthlyRevenue = validOrders.reduce((acc, o) => acc + o.total_amount, 0);
     const estimatedNetProfit = validOrders.reduce((acc, o) => acc + o.estimated_profit, 0);
     const pendingCount = orders.filter((o) => o.status === 'pending').length;
+    const newQuotesCount = quotes.filter((q) => q.status === 'nueva').length;
     return {
       monthlyRevenue,
       estimatedNetProfit,
       pendingCount,
+      newQuotesCount,
       activeProducts: products.filter((p) => p.is_active).length,
     };
-  }, [orders, products]);
+  }, [orders, products, quotes]);
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
@@ -210,6 +237,25 @@ export default function AdminPage() {
       return true;
     });
   }, [orders, orderStatusFilter, orderSearch]);
+
+  // Filtered Quotes
+  const filteredQuotes = useMemo(() => {
+    return quotes.filter((q) => {
+      if (quoteStatusFilter !== 'all' && q.status !== quoteStatusFilter) return false;
+      if (quoteSearch.trim() !== '') {
+        const term = quoteSearch.toLowerCase();
+        return (
+          q.quote_number.toLowerCase().includes(term) ||
+          q.customer_name.toLowerCase().includes(term) ||
+          q.customer_phone.includes(term) ||
+          q.customer_city.toLowerCase().includes(term) ||
+          q.budget_range.toLowerCase().includes(term) ||
+          (q.comments || '').toLowerCase().includes(term)
+        );
+      }
+      return true;
+    });
+  }, [quotes, quoteStatusFilter, quoteSearch]);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -258,6 +304,30 @@ export default function AdminPage() {
     }
   };
 
+  // Quote Actions
+  const handleUpdateQuoteStatus = async (quoteId: string, status: QuoteStatus) => {
+    const res = await fetch(`/api/admin/quotes/${quoteId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setQuotes((prev) => prev.map((q) => (q.id === quoteId ? data.quote : q)));
+      notify(`Cotización actualizada a: ${QUOTE_STATUS_LABELS[status].label}`);
+    }
+  };
+
+  const handleDeleteQuote = async (quote: CustomQuote) => {
+    if (!window.confirm(`¿Eliminar la cotización #${quote.quote_number} de ${quote.customer_name}?`))
+      return;
+    const res = await fetch(`/api/admin/quotes/${quote.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setQuotes((prev) => prev.filter((q) => q.id !== quote.id));
+      notify(`Cotización #${quote.quote_number} eliminada`);
+    }
+  };
+
   // Product Modal Openers
   const openCreateProductModal = () => {
     setEditingProduct(null);
@@ -269,7 +339,8 @@ export default function AdminPage() {
     setFormComparePrice('');
     setFormSupplierCost(0);
     setFormShippingCost(0);
-    setFormInventoryType('dropi');
+    setFormInventoryType('local');
+    setFormEstimatedArrivalDate('');
     setFormDropiUrl('');
     setFormStock(10);
     setFormIsActive(true);
@@ -296,6 +367,7 @@ export default function AdminPage() {
     setFormSupplierCost(prod.supplier_cost);
     setFormShippingCost(prod.estimated_shipping_cost);
     setFormInventoryType(prod.inventory_type);
+    setFormEstimatedArrivalDate(prod.estimated_arrival_date || '');
     setFormDropiUrl(prod.dropi_reference_url || '');
     setFormStock(prod.stock);
     setFormIsActive(prod.is_active);
@@ -373,6 +445,8 @@ export default function AdminPage() {
       supplier_cost: Number(formSupplierCost || 0),
       estimated_shipping_cost: Number(formShippingCost || 0),
       inventory_type: formInventoryType,
+      estimated_arrival_date:
+        formInventoryType === 'preorder' ? formEstimatedArrivalDate.trim() : '',
       dropi_reference_url: formDropiUrl.trim(),
       stock: Number(formStock),
       is_active: formIsActive,
@@ -551,7 +625,7 @@ export default function AdminPage() {
         <div className="flex items-center gap-3">
           <BrandLogo variant="horizontal" size="sm" />
           <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono bg-sky-400/15 text-sky-300 border border-sky-400/30">
-            BASE DE DATOS LOCAL (PC)
+            PANEL ADMIN // OCAÑA & COLOMBIA
           </span>
         </div>
 
@@ -613,33 +687,39 @@ export default function AdminPage() {
               {formatCOP(kpis.estimatedNetProfit)}
             </p>
             <span className="text-[10px] sm:text-[11px] text-emerald-300/80 block">
-              Libre (Resta Dropi + Flete)
+              Libre (Resta Proveedor + Flete)
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-amber-500/30 space-y-1.5">
+          <div
+            onClick={() => setActiveTab('orders')}
+            className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-amber-500/30 space-y-1.5 cursor-pointer hover:border-amber-400 transition"
+          >
             <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-amber-300">
-              <span>POR CONFIRMAR</span>
+              <span>PEDIDOS PENDIENTES</span>
               <Clock className="w-4 h-4 text-amber-400 shrink-0" />
             </div>
             <p className="text-lg sm:text-2xl font-mono font-bold text-white">
               {kpis.pendingCount}
             </p>
             <span className="text-[10px] sm:text-[11px] text-amber-300/80 block">
-              Pendientes WhatsApp
+              Pendiente WhatsApp / Leads
             </span>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-white/[0.08] space-y-1.5">
-            <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-slate-400">
-              <span>CATÁLOGO ACTIVO</span>
-              <Package className="w-4 h-4 text-sky-400 shrink-0" />
+          <div
+            onClick={() => setActiveTab('quotes')}
+            className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-sky-400/30 space-y-1.5 cursor-pointer hover:border-sky-400 transition"
+          >
+            <div className="flex items-center justify-between text-[10px] sm:text-xs font-mono text-sky-300">
+              <span>COTIZACIONES PC/PORTÁTIL</span>
+              <Laptop className="w-4 h-4 text-sky-400 shrink-0" />
             </div>
             <p className="text-lg sm:text-2xl font-mono font-bold text-white">
-              {kpis.activeProducts} / {products.length}
+              {kpis.newQuotesCount} nuevas / {quotes.length}
             </p>
-            <span className="text-[10px] sm:text-[11px] text-slate-400 block">
-              Productos publicados
+            <span className="text-[10px] sm:text-[11px] text-sky-300/80 block">
+              Solicitudes bajo pedido
             </span>
           </div>
         </div>
@@ -675,6 +755,24 @@ export default function AdminPage() {
 
             <button
               type="button"
+              onClick={() => setActiveTab('quotes')}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono uppercase tracking-wider shrink-0 transition cursor-pointer ${
+                activeTab === 'quotes'
+                  ? 'bg-sky-400 text-slate-950 font-bold shadow-[0_0_20px_rgba(56,189,248,0.35)]'
+                  : 'bg-[#111827] text-slate-300 hover:text-white border border-white/10'
+              }`}
+            >
+              <Laptop className="w-4 h-4" />
+              Cotizaciones de PCs/Portátiles ({quotes.length})
+              {kpis.newQuotesCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-bold text-[10px]">
+                  {kpis.newQuotesCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab('settings')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono uppercase tracking-wider shrink-0 transition cursor-pointer ${
                 activeTab === 'settings'
@@ -700,7 +798,7 @@ export default function AdminPage() {
         </div>
 
         {/* =====================================================================
-            TAB 1: GESTIÓN DE PRODUCTOS (CRUD COMPLETO + RENTABILIDAD DROPI/LOCAL)
+            TAB 1: GESTIÓN DE PRODUCTOS (CRUD COMPLETO + 3 ESTADOS DE DISPONIBILIDAD)
            ===================================================================== */}
         {activeTab === 'products' && (
           <div className="space-y-5">
@@ -728,9 +826,8 @@ export default function AdminPage() {
                   Sube tu primer producto a Krono Tech
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                  Agrega tus productos de Dropi o de Stock Físico Local con sus fotos reales,
-                  especificaciones técnicas, precio público y costos privados para calcular tu
-                  ganancia neta automáticamente.
+                  Agrega tus productos En Stock (Ocaña), de Envío Nacional o de Próximo Lote en
+                  Camino (Reserva Anticipada con $0) con fotos reales y cálculo de ganancia neta.
                 </p>
                 <button
                   type="button"
@@ -765,17 +862,21 @@ export default function AdminPage() {
                           className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shrink-0 border border-white/10 bg-[#090D16]"
                         />
                         <div className="flex-1 min-w-0 space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
                             <span
                               className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase ${
                                 prod.inventory_type === 'local'
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : prod.inventory_type === 'preorder'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/35'
                                   : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
                               }`}
                             >
                               {prod.inventory_type === 'local'
-                                ? '⚡ Stock Local'
-                                : '🚚 Dropi Nacional'}
+                                ? '⚡ En Stock Ocaña (Ruta 5PM)'
+                                : prod.inventory_type === 'preorder'
+                                ? '⏳ Próximo Lote en Camino ($0)'
+                                : '🚚 Envío Nacional (2-4 días)'}
                             </span>
                             <span className="text-xs font-mono text-slate-400">
                               Stock: <strong className="text-white">{prod.stock}</strong>
@@ -783,6 +884,12 @@ export default function AdminPage() {
                           </div>
 
                           <h3 className="text-sm font-bold text-white truncate">{prod.title}</h3>
+
+                          {prod.inventory_type === 'preorder' && prod.estimated_arrival_date && (
+                            <p className="text-[11px] font-mono text-amber-300 truncate">
+                              📅 {prod.estimated_arrival_date}
+                            </p>
+                          )}
 
                           <div className="flex items-baseline gap-2">
                             <span className="text-sm sm:text-base font-mono font-bold text-sky-400">
@@ -888,7 +995,7 @@ export default function AdminPage() {
         )}
 
         {/* =====================================================================
-            TAB 2: GESTIÓN DE PEDIDOS + BOTÓN "COPIAR DATOS PARA DROPI"
+            TAB 2: GESTIÓN DE PEDIDOS + CAPTURA DE LEADS ("Pendiente WhatsApp")
            ===================================================================== */}
         {activeTab === 'orders' && (
           <div className="space-y-5">
@@ -907,7 +1014,7 @@ export default function AdminPage() {
               <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
                 {[
                   { id: 'all', label: 'Todos' },
-                  { id: 'pending', label: 'Pendientes (WhatsApp)' },
+                  { id: 'pending', label: 'Pendiente WhatsApp' },
                   { id: 'shipped', label: 'Enviados / En Tránsito' },
                   { id: 'delivered', label: 'Entregados' },
                   { id: 'cancelled', label: 'Cancelados' },
@@ -932,22 +1039,28 @@ export default function AdminPage() {
               <div className="rounded-3xl bg-[#111827] border border-white/[0.08] p-10 text-center space-y-2">
                 <ShoppingCart className="w-8 h-8 text-slate-500 mx-auto mb-2" />
                 <h3 className="text-base font-bold text-white">No hay pedidos registrados</h3>
-                <p className="text-xs text-slate-400">
-                  Cada vez que un cliente confirme su compra desde el Checkout de 1 paso, aparecerá
-                  aquí en tiempo real con el botón para copiar los datos a Dropi.
+                <p className="text-xs text-slate-400 max-w-lg mx-auto">
+                  Cada vez que un cliente presione el botón final en el Checkout (incluso si cierra
+                  WhatsApp después), sus datos quedan capturados aquí con estado &ldquo;Pendiente
+                  WhatsApp&rdquo;.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {filteredOrders.map((order) => {
                   const statusInfo = STATUS_LABELS[order.status] || STATUS_LABELS.pending;
+                  const isOrderOcana = isOcanaCity(order.city);
+                  const hasOrderPreorder = order.items.some(
+                    (i) => i.inventory_type === 'preorder'
+                  );
+
                   return (
                     <div
                       key={order.id}
                       className="rounded-2xl bg-[#111827] border border-white/[0.08] p-4 sm:p-5 space-y-4 hover:border-white/15 transition"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] pb-3.5">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                           <span className="px-3 py-1 rounded-lg bg-sky-400/15 text-sky-300 font-mono font-bold text-xs sm:text-sm border border-sky-400/30">
                             #{order.order_number}
                           </span>
@@ -956,12 +1069,22 @@ export default function AdminPage() {
                           >
                             {statusInfo.label}
                           </span>
+                          {isOrderOcana && (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-400/35">
+                              📍 Ocaña (Ruta 5:15 PM)
+                            </span>
+                          )}
+                          {hasOrderPreorder && (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-mono bg-amber-500/15 text-amber-300 border border-amber-400/35">
+                              ⏳ Reserva Lote en Camino
+                            </span>
+                          )}
                           <span className="text-[11px] font-mono text-slate-400">
                             {new Date(order.created_at).toLocaleString('es-CO')}
                           </span>
                         </div>
 
-                        {/* BOTÓN RÁPIDO: COPIAR DATOS PARA DROPI */}
+                        {/* BOTÓN RÁPIDO: COPIAR DATOS PARA DROPI + CONTACTAR POR WHATSAPP */}
                         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                           <button
                             type="button"
@@ -971,12 +1094,12 @@ export default function AdminPage() {
                             {copiedOrderId === order.id ? (
                               <>
                                 <Check className="w-4 h-4" />
-                                ¡Copiado para Dropi!
+                                ¡Copiado!
                               </>
                             ) : (
                               <>
                                 <Copy className="w-4 h-4" />
-                                Copiar Datos para Dropi
+                                Copiar Datos Despacho
                               </>
                             )}
                           </button>
@@ -993,6 +1116,10 @@ export default function AdminPage() {
                                   ? ` Tu guía de rastreo por ${
                                       order.carrier || 'transportadora'
                                     } es: ${order.tracking_number}`
+                                  : hasOrderPreorder
+                                  ? ' Te confirmamos que tu unidad ya quedó agendada en nuestra lista prioritaria del próximo lote en camino.'
+                                  : isOrderOcana
+                                  ? ' Confirmamos tus datos para entregarte hoy en nuestra ruta de Ocaña (5:15 PM a 7:30 PM).'
                                   : ' Confirmamos tus datos para despachar hoy mismo.'
                               }`
                             )}`}
@@ -1001,7 +1128,7 @@ export default function AdminPage() {
                             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-mono transition"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
-                            WhatsApp
+                            Contactar Cliente
                           </a>
 
                           <button
@@ -1020,7 +1147,7 @@ export default function AdminPage() {
                         <div className="lg:col-span-5 space-y-1 text-xs">
                           <p className="text-slate-400 font-mono uppercase">Datos del Cliente:</p>
                           <p className="text-sm font-bold text-white">{order.customer_name}</p>
-                          <p className="font-mono text-sky-300">Cel: {order.customer_phone}</p>
+                          <p className="font-mono text-sky-300">WhatsApp: {order.customer_phone}</p>
                           <p className="text-slate-200">
                             <strong>Ciudad:</strong> {order.city}, {order.department}
                           </p>
@@ -1043,8 +1170,20 @@ export default function AdminPage() {
                                 <span className="truncate pr-2 text-slate-200">
                                   {item.title} <strong>x{item.quantity}</strong>
                                 </span>
-                                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-sky-300 shrink-0 uppercase">
-                                  {item.inventory_type}
+                                <span
+                                  className={`font-mono text-[10px] px-1.5 py-0.5 rounded shrink-0 uppercase ${
+                                    item.inventory_type === 'preorder'
+                                      ? 'bg-amber-500/20 text-amber-300'
+                                      : item.inventory_type === 'local'
+                                      ? 'bg-emerald-500/20 text-emerald-300'
+                                      : 'bg-white/5 text-sky-300'
+                                  }`}
+                                >
+                                  {item.inventory_type === 'preorder'
+                                    ? '⏳ RESERVA'
+                                    : item.inventory_type === 'local'
+                                    ? '⚡ LOCAL'
+                                    : '🚚 NACIONAL'}
                                 </span>
                               </div>
                             ))}
@@ -1091,7 +1230,7 @@ export default function AdminPage() {
                               }
                               className="w-full px-2.5 py-2 rounded-lg bg-[#111827] border border-white/10 text-xs text-white focus:border-sky-400 focus:outline-none"
                             >
-                              <option value="pending">Pendiente por Confirmar (WhatsApp)</option>
+                              <option value="pending">Pendiente WhatsApp</option>
                               <option value="shipped">Enviado / En Tránsito (Guía generada)</option>
                               <option value="delivered">Entregado (Dinero recaudado)</option>
                               <option value="cancelled">Cancelado / Devolución</option>
@@ -1105,7 +1244,7 @@ export default function AdminPage() {
                               </label>
                               <input
                                 type="text"
-                                placeholder="Interrapidísimo / Envía"
+                                placeholder="Ruta Ocaña / Envía"
                                 defaultValue={order.carrier}
                                 onBlur={(e) => {
                                   if (e.target.value !== order.carrier) {
@@ -1146,7 +1285,203 @@ export default function AdminPage() {
         )}
 
         {/* =====================================================================
-            TAB 3: CONFIGURACIÓN GENERAL DE LA TIENDA
+            TAB 3: COTIZACIONES DE PCs / PORTÁTILES BAJO PEDIDO (`custom_quotes`)
+           ===================================================================== */}
+        {activeTab === 'quotes' && (
+          <div className="space-y-5">
+            <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={quoteSearch}
+                  onChange={(e) => setQuoteSearch(e.target.value)}
+                  placeholder="Buscar por #COT-101, cliente, WhatsApp, ciudad o rango..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#111827] border border-white/10 focus:border-sky-400 focus:outline-none text-xs font-mono text-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
+                {[
+                  { id: 'all', label: 'Todas' },
+                  { id: 'nueva', label: 'Nueva' },
+                  { id: 'cotizacion_enviada', label: 'Cotización Enviada' },
+                  { id: 'cerrada_vendida', label: 'Cerrada/Vendida' },
+                ].map((st) => (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() => setQuoteStatusFilter(st.id)}
+                    className={`px-3 py-2 rounded-xl text-xs font-mono border shrink-0 transition cursor-pointer ${
+                      quoteStatusFilter === st.id
+                        ? 'bg-sky-400/20 text-sky-300 border-sky-400'
+                        : 'bg-[#111827] text-slate-400 border-white/10 hover:text-white'
+                    }`}
+                  >
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filteredQuotes.length === 0 ? (
+              <div className="rounded-3xl bg-[#111827] border border-white/[0.08] p-10 text-center space-y-2">
+                <Laptop className="w-8 h-8 text-sky-400 mx-auto mb-2" />
+                <h3 className="text-base font-bold text-white">
+                  No hay cotizaciones de PCs o Portátiles registradas
+                </h3>
+                <p className="text-xs text-slate-400 max-w-lg mx-auto">
+                  Cuando un usuario complete el Cotizador Interactivo de 4 pasos en la tienda, su
+                  solicitud aparecerá aquí para que puedas enviarle opciones y hacer seguimiento.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredQuotes.map((quote) => {
+                  const statusBadge =
+                    QUOTE_STATUS_LABELS[quote.status] || QUOTE_STATUS_LABELS.nueva;
+                  const isClientOcana = isOcanaCity(quote.customer_city);
+                  const equipText =
+                    quote.equipment_type === 'portatil' ? 'Portátil Nuevo' : 'PC Gamer / Escritorio';
+
+                  const replyWaUrl = `https://wa.me/57${quote.customer_phone.replace(
+                    /\D/g,
+                    ''
+                  )}?text=${encodeURIComponent(
+                    `¡Hola ${quote.customer_name}! 🖥️👋 Te escribimos de Krono Tech respecto a tu cotización #${quote.quote_number} de un *${equipText}* (Presupuesto: ${quote.budget_range}) para *${quote.primary_uses.join(
+                      ', '
+                    )}*. Te tenemos listas las mejores opciones calidad/precio:`
+                  )}`;
+
+                  return (
+                    <div
+                      key={quote.id}
+                      className="rounded-2xl bg-[#111827] border border-white/[0.08] p-4 sm:p-5 space-y-4 hover:border-sky-400/30 transition"
+                    >
+                      {/* Top Header Row */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] pb-3.5">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                          <span className="px-3 py-1 rounded-lg bg-sky-400/15 text-sky-300 font-mono font-bold text-xs sm:text-sm border border-sky-400/30">
+                            #{quote.quote_number}
+                          </span>
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-mono border ${statusBadge.badgeClass}`}
+                          >
+                            {statusBadge.label}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-mono bg-white/5 text-white border border-white/10">
+                            {quote.equipment_label}
+                          </span>
+                          {isClientOcana && (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-400/35">
+                              📍 Cliente en Ocaña
+                            </span>
+                          )}
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {new Date(quote.created_at).toLocaleString('es-CO')}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                          <a
+                            href={replyWaUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs font-mono transition"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 fill-slate-950" />
+                            <span>Responder por WhatsApp</span>
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuote(quote)}
+                            className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 cursor-pointer"
+                            title="Eliminar cotización"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Quote Body */}
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+                        {/* Customer Info */}
+                        <div className="lg:col-span-4 space-y-1.5 text-xs">
+                          <p className="text-slate-400 font-mono uppercase">Datos del Interesado:</p>
+                          <p className="text-sm font-bold text-white">{quote.customer_name}</p>
+                          <p className="font-mono text-sky-300">WhatsApp: {quote.customer_phone}</p>
+                          <p className="text-slate-200 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            <strong>Ciudad:</strong> {quote.customer_city}
+                          </p>
+                        </div>
+
+                        {/* Equipment & Budget Specs */}
+                        <div className="lg:col-span-5 space-y-2.5 text-xs">
+                          <div>
+                            <span className="text-slate-400 font-mono uppercase block mb-1">
+                              Usos Principales Seleccionados:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {quote.primary_uses.map((u, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2.5 py-1 rounded-lg bg-[#090D16] text-sky-300 border border-sky-400/25 font-mono text-[11px]"
+                                >
+                                  {u}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 pt-1">
+                            <span className="text-slate-400 font-mono uppercase">
+                              Presupuesto Estimado:
+                            </span>
+                            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 font-mono font-bold text-xs">
+                              {quote.budget_range}
+                            </span>
+                          </div>
+
+                          {quote.comments && (
+                            <div className="p-2.5 rounded-xl bg-[#090D16] border border-white/[0.06] text-slate-200">
+                              <span className="text-[10px] font-mono uppercase text-slate-400 block mb-0.5">
+                                Detalles Extra / Comentarios:
+                              </span>
+                              <p className="text-xs leading-relaxed">{quote.comments}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Status Management */}
+                        <div className="lg:col-span-3 bg-[#090D16] p-3.5 rounded-xl border border-white/[0.06] space-y-2">
+                          <label className="block text-[10px] font-mono uppercase text-slate-400">
+                            Cambiar Estado de Cotización
+                          </label>
+                          <select
+                            value={quote.status}
+                            onChange={(e) =>
+                              handleUpdateQuoteStatus(quote.id, e.target.value as QuoteStatus)
+                            }
+                            className="w-full px-3 py-2.5 rounded-xl bg-[#111827] border border-white/10 text-xs font-mono text-white focus:border-sky-400 focus:outline-none"
+                          >
+                            <option value="nueva">Nueva</option>
+                            <option value="cotizacion_enviada">Cotización Enviada</option>
+                            <option value="cerrada_vendida">Cerrada/Vendida</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 4: CONFIGURACIÓN GENERAL DE LA TIENDA
            ===================================================================== */}
         {activeTab === 'settings' && settings && (
           <form onSubmit={handleSaveSettings} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1157,7 +1492,7 @@ export default function AdminPage() {
 
               <div>
                 <label className="block text-xs text-slate-300 mb-1.5">
-                  Tu Número de WhatsApp Oficial para Recibir Pedidos (Ej: 573001234567)
+                  Tu Número de WhatsApp Oficial para Recibir Pedidos y Cotizaciones (Ej: 573001234567)
                 </label>
                 <input
                   type="tel"
@@ -1375,7 +1710,7 @@ export default function AdminPage() {
       </main>
 
       {/* =======================================================================
-          MODAL DE CREACIÓN / EDICIÓN DE PRODUCTO (CRUD COMPLETO MOBILE & PC)
+          MODAL DE CREACIÓN / EDICIÓN DE PRODUCTO (CRUD COMPLETO + 3 ESTADOS)
          ======================================================================= */}
       {isProductModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md">
@@ -1383,7 +1718,7 @@ export default function AdminPage() {
             <div className="flex items-center justify-between border-b border-white/10 pb-3.5 sticky top-0 bg-[#0B0F19] z-20">
               <div>
                 <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-widest text-sky-400">
-                  GESTOR DE INVENTARIO & RENTABILIDAD DROPI / LOCAL
+                  GESTOR DE INVENTARIO, PREVENTA & RENTABILIDAD
                 </span>
                 <h2 className="text-lg sm:text-xl font-bold text-white">
                   {editingProduct ? `Editar: ${editingProduct.title}` : 'Subir Nuevo Producto'}
@@ -1492,7 +1827,7 @@ export default function AdminPage() {
 
                   <div>
                     <label className="block text-xs text-amber-300 mb-1">
-                      Costo Proveedor (Dropi)
+                      Costo Proveedor / Lote
                     </label>
                     <input
                       type="number"
@@ -1520,66 +1855,96 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Row 3: Origen de Inventario, Stock, Dropi Link & Switches */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-                <div className="sm:col-span-4">
-                  <label className="block text-xs text-slate-300 mb-1">
-                    Origen / Tipo de Inventario
-                  </label>
-                  <select
-                    value={formInventoryType}
-                    onChange={(e) => setFormInventoryType(e.target.value as InventoryType)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#111827] border border-white/10 text-xs font-mono text-white"
-                  >
-                    <option value="dropi">🚚 Dropshipping Nacional (Dropi)</option>
-                    <option value="local">⚡ Stock Físico Local (Entrega Hoy)</option>
-                  </select>
+              {/* Row 3: 2. ESTADOS AVANZADOS DE PRODUCTO ("En Stock Ocaña", "Envío Nacional", "Próximo Lote en Camino") */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-sky-400/25 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                  <div className="sm:col-span-6">
+                    <label className="block text-xs font-mono uppercase tracking-wider text-sky-400 mb-1.5">
+                      Estado de Disponibilidad / Stock *
+                    </label>
+                    <select
+                      value={formInventoryType}
+                      onChange={(e) => setFormInventoryType(e.target.value as InventoryType)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-[#090D16] border border-white/15 text-xs font-mono text-white focus:border-sky-400 focus:outline-none"
+                    >
+                      <option value="local">
+                        ⚡ En Stock (Entrega hoy en Ocaña - Ruta 5:00 PM)
+                      </option>
+                      <option value="dropi">🚚 Envío Nacional (2 a 4 días)</option>
+                      <option value="preorder">
+                        ⏳ Próximo Lote en Camino (Separa el tuyo con $0)
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-slate-300 mb-1">
+                      {formInventoryType === 'preorder' ? 'Cupos Lote' : 'Stock Disp.'}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={formStock}
+                      onChange={(e) => setFormStock(Number(e.target.value))}
+                      className="w-full px-3 py-2.5 rounded-xl bg-[#090D16] border border-white/10 text-xs font-mono text-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-4 flex items-center gap-4 pb-2">
+                    <label className="inline-flex items-center gap-2 cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={formIsActive}
+                        onChange={(e) => setFormIsActive(e.target.checked)}
+                        className="accent-sky-400"
+                      />
+                      <span>Activo en tienda</span>
+                    </label>
+
+                    <label className="inline-flex items-center gap-2 cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={formIsFeatured}
+                        onChange={(e) => setFormIsFeatured(e.target.checked)}
+                        className="accent-sky-400"
+                      />
+                      <span>Producto Estrella</span>
+                    </label>
+                  </div>
                 </div>
 
-                <div className="sm:col-span-4">
-                  <label className="block text-xs text-slate-300 mb-1">
-                    ID o Link Privado en Dropi
+                {/* Conditional Field when "Próximo Lote en Camino" is chosen */}
+                {formInventoryType === 'preorder' && (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-400/35 space-y-2">
+                    <label className="block text-xs font-mono text-amber-300 font-semibold">
+                      ⏳ Fecha Estimada de Llegada del Lote (Visible para el cliente)
+                    </label>
+                    <input
+                      type="text"
+                      value={formEstimatedArrivalDate}
+                      onChange={(e) => setFormEstimatedArrivalDate(e.target.value)}
+                      placeholder="Ej: Llega la primera semana de Noviembre"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#090D16] border border-amber-400/40 text-xs font-mono text-white placeholder:text-slate-500 focus:border-amber-400 focus:outline-none"
+                    />
+                    <p className="text-[11px] text-amber-200/80">
+                      El botón de compra cambiará automáticamente a{' '}
+                      <strong>&ldquo;Reservar Unidad (Pagas cuando llegue)&rdquo;</strong> y el
+                      mensaje de WhatsApp te indicará que es una reserva prioritaria.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">
+                    ID o Link Privado Proveedor / Dropi (Opcional)
                   </label>
                   <input
                     type="text"
                     value={formDropiUrl}
                     onChange={(e) => setFormDropiUrl(e.target.value)}
-                    placeholder="ID o URL del producto en Dropi"
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#111827] border border-white/10 text-xs font-mono text-slate-300"
+                    placeholder="ID o URL de referencia del proveedor"
+                    className="w-full px-3 py-2 rounded-xl bg-[#090D16] border border-white/10 text-xs font-mono text-slate-300"
                   />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-300 mb-1">Stock Disp.</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={formStock}
-                    onChange={(e) => setFormStock(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#111827] border border-white/10 text-xs font-mono text-white"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 flex items-center gap-4 pb-2">
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs">
-                    <input
-                      type="checkbox"
-                      checked={formIsActive}
-                      onChange={(e) => setFormIsActive(e.target.checked)}
-                      className="accent-sky-400"
-                    />
-                    <span>Activo</span>
-                  </label>
-
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs">
-                    <input
-                      type="checkbox"
-                      checked={formIsFeatured}
-                      onChange={(e) => setFormIsFeatured(e.target.checked)}
-                      className="accent-sky-400"
-                    />
-                    <span>Estrella</span>
-                  </label>
                 </div>
               </div>
 
@@ -1591,7 +1956,7 @@ export default function AdminPage() {
                       Fotos del Producto * (Subida Directa desde Celular o PC)
                     </h4>
                     <p className="text-[11px] text-slate-400">
-                      Foto #1: Portada principal. Foto #2: Efecto Hover automático.
+                      Foto #1: Portada principal. Puedes reordenarlas con las flechas.
                     </p>
                   </div>
 
@@ -1642,7 +2007,7 @@ export default function AdminPage() {
                         <div className="aspect-square sm:aspect-[4/3] rounded-lg overflow-hidden relative">
                           <img src={img} alt="" className="w-full h-full object-cover" />
                           <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded bg-black/80 text-[10px] font-mono text-sky-300">
-                            {idx === 0 ? '★ PORTADA' : idx === 1 ? '⚡ HOVER' : `#${idx + 1}`}
+                            {idx === 0 ? '★ PORTADA' : `#${idx + 1}`}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-1">

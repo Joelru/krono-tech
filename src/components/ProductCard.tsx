@@ -8,6 +8,7 @@ import {
   Volume2,
   ShoppingBag,
   Check,
+  Clock,
 } from 'lucide-react';
 import { PublicProduct } from '@/types';
 import { calculateDiscountPercent, formatCOP } from '@/lib/format';
@@ -31,6 +32,7 @@ export function ProductCard({
   const discount = calculateDiscountPercent(product.sale_price, product.compare_price);
   const primaryImage = product.images?.[0] || '/brand/logo-full.png';
   const topSpecs = (product.specs || []).slice(0, 2);
+  const isPreorder = product.inventory_type === 'preorder';
 
   const handleQuickSound = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -58,17 +60,22 @@ export function ProductCard({
       <div>
         {/* Image Container with smooth subtle zoom-in on primary image */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#0B0F19]">
-          {/* Dynamic Top Badge: Stock Type */}
-          <div className="absolute top-2.5 left-2.5 z-10 flex flex-wrap items-center gap-1.5 max-w-[78%]">
+          {/* Dynamic Top Badge: 3 Availability States */}
+          <div className="absolute top-2.5 left-2.5 z-10 flex flex-wrap items-center gap-1.5 max-w-[82%]">
             {product.inventory_type === 'local' ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/90 text-emerald-300 border border-emerald-400/35">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#090D16]/90 text-emerald-300 border border-emerald-400/40">
                 <Zap className="w-3 h-3 fill-emerald-400 text-emerald-400 shrink-0" />
-                ⚡ Entrega Hoy (Local)
+                ⚡ En Stock (Hoy Ocaña 5:00 PM)
+              </span>
+            ) : isPreorder ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#090D16]/95 text-amber-300 border border-amber-400/45">
+                <Clock className="w-3 h-3 text-amber-400 shrink-0" />
+                ⏳ Próximo Lote (Separa con $0)
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#090D16]/90 text-sky-300 border border-sky-400/35">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#090D16]/90 text-sky-300 border border-sky-400/35">
                 <Truck className="w-3 h-3 text-sky-400 shrink-0" />
-                🚚 Envío Gratis Contraentrega
+                🚚 Envío Nacional (2 a 4 días)
               </span>
             )}
           </div>
@@ -123,6 +130,14 @@ export function ProductCard({
             {product.title}
           </h3>
 
+          {/* Preorder Arrival Date Banner */}
+          {isPreorder && product.estimated_arrival_date && (
+            <div className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-400/30 text-[11px] font-mono text-amber-300 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+              <span className="truncate">{product.estimated_arrival_date}</span>
+            </div>
+          )}
+
           {/* 2 Key Specs in Monospace Pills */}
           {topSpecs.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -153,9 +168,15 @@ export function ProductCard({
             </span>
           </div>
 
-          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-            Pago en Casa
-          </span>
+          {isPreorder ? (
+            <span className="text-[10px] font-mono text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-400/30">
+              Separa con $0
+            </span>
+          ) : (
+            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              Pago en Casa
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-12 gap-2">
@@ -165,10 +186,23 @@ export function ProductCard({
               e.stopPropagation();
               onBuyNow(product);
             }}
-            className="col-span-9 py-2.5 px-3 rounded-xl bg-white hover:bg-sky-400 active:bg-sky-400 active:scale-[0.98] text-slate-950 font-bold text-xs uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer"
+            className={`col-span-9 py-2.5 px-2.5 rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98] ${
+              isPreorder
+                ? 'bg-sky-400 hover:bg-cyan-300 text-slate-950 shadow-[0_0_16px_rgba(56,189,248,0.25)]'
+                : 'bg-white hover:bg-sky-400 active:bg-sky-400 text-slate-950'
+            }`}
           >
-            <Banknote className="w-4 h-4 shrink-0" />
-            <span>Pedir Ahora</span>
+            {isPreorder ? (
+              <>
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Reservar Unidad (Pagas cuando llegue)</span>
+              </>
+            ) : (
+              <>
+                <Banknote className="w-4 h-4 shrink-0" />
+                <span>Pedir Ahora</span>
+              </>
+            )}
           </button>
 
           <button

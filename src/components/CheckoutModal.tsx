@@ -18,10 +18,11 @@ import {
   Phone,
   User,
   Home,
+  Clock,
 } from 'lucide-react';
 import { CartItem, PaymentMethod, StoreSettings } from '@/types';
 import { COLOMBIA_LOCATIONS } from '@/lib/colombia-locations';
-import { formatCOP, isValidColombianPhone } from '@/lib/format';
+import { formatCOP, isOcanaCity, isValidColombianPhone } from '@/lib/format';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -44,8 +45,9 @@ export function CheckoutModal({
 }: CheckoutModalProps) {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [department, setDepartment] = useState('Bogotá D.C.');
-  const [city, setCity] = useState('Bogotá D.C.');
+  const [department, setDepartment] = useState('Norte de Santander');
+  const [city, setCity] = useState('Ocaña');
+  const [customCityMode, setCustomCityMode] = useState(false);
   const [address, setAddress] = useState('');
   const [neighborhoodRef, setNeighborhoodRef] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
@@ -56,6 +58,7 @@ export function CheckoutModal({
     order_number: string;
     total_amount: number;
     whatsapp_url: string;
+    has_preorder: boolean;
   } | null>(null);
 
   const availableCities = useMemo(() => {
@@ -65,13 +68,30 @@ export function CheckoutModal({
 
   const handleDepartmentChange = (newDept: string) => {
     setDepartment(newDept);
+    setCustomCityMode(false);
     const found = COLOMBIA_LOCATIONS.find((d) => d.department === newDept);
     if (found && found.cities.length > 0) {
-      setCity(found.cities[0]);
+      if (newDept === 'Norte de Santander' && found.cities.includes('Ocaña')) {
+        setCity('Ocaña');
+      } else {
+        setCity(found.cities[0]);
+      }
     } else {
       setCity('');
     }
   };
+
+  const selectOcanaQuick = () => {
+    setDepartment('Norte de Santander');
+    setCity('Ocaña');
+    setCustomCityMode(false);
+  };
+
+  const isLocalOcana = useMemo(() => isOcanaCity(city), [city]);
+  const hasPreorderItems = useMemo(
+    () => cart.some((item) => item.product.inventory_type === 'preorder'),
+    [cart]
+  );
 
   const subtotal = useMemo(
     () => cart.reduce((acc, item) => acc + item.product.sale_price * item.quantity, 0),
@@ -95,7 +115,7 @@ export function CheckoutModal({
       return;
     }
 
-    if (customerName.trim().length < 4) {
+    if (customerName.trim().length < 3) {
       setErrorMsg('Por favor ingresa tu Nombre y Apellidos completos.');
       return;
     }
@@ -107,33 +127,36 @@ export function CheckoutModal({
       return;
     }
 
-    if (!department || !city) {
-      setErrorMsg('Selecciona tu Departamento y Ciudad.');
+    if (!department || !city.trim()) {
+      setErrorMsg('Selecciona o escribe tu Departamento y Ciudad.');
       return;
     }
 
-    if (address.trim().length < 6) {
+    if (address.trim().length < 5) {
       setErrorMsg('Ingresa tu dirección exacta (Calle/Carrera, Número, Apto/Casa).');
       return;
     }
 
-    if (neighborhoodRef.trim().length < 5) {
+    if (neighborhoodRef.trim().length < 4) {
       setErrorMsg(
-        'Por favor incluye el Barrio y un Punto de Referencia para evitar devoluciones de la transportadora.'
+        'Por favor incluye el Barrio y un Punto de Referencia para garantizar la entrega.'
       );
       return;
     }
 
     setSubmitting(true);
     try {
+      // 4.2. CAPTURA DE LEADS (CARRITOS ABANDONADOS):
+      // Se guarda PRIMERO en la base de datos (`orders`) con estado `"Pendiente WhatsApp"` (`pending`)
+      // en el instante exacto en que el usuario presiona el botón final, antes de abrir WhatsApp.
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_name: customerName.trim(),
           customer_phone: cleanPhone,
-          department,
-          city,
+          department: isLocalOcana ? 'Norte de Santander' : department,
+          city: isLocalOcana ? 'Ocaña' : city.trim(),
           address: address.trim(),
           neighborhood_reference: neighborhoodRef.trim(),
           payment_method: paymentMethod,
@@ -155,6 +178,7 @@ export function CheckoutModal({
         order_number: data.order.order_number,
         total_amount: data.order.total_amount,
         whatsapp_url: data.whatsapp_url,
+        has_preorder: hasPreorderItems,
       });
 
       onClearCart();
@@ -188,13 +212,15 @@ export function CheckoutModal({
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
               <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-widest text-sky-400">
-                CHECKOUT RÁPIDO 1-PASO // COLOMBIA
+                CHECKOUT RÁPIDO 1-PASO // OCAÑA & COLOMBIA
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-bold text-white mt-0.5">
               {confirmedOrder
                 ? `¡Pedido #${confirmedOrder.order_number} Registrado!`
-                : 'Datos de Envío — Pago en Casa'}
+                : hasPreorderItems
+                ? 'Reservar Unidad — Próximo Lote en Camino ($0 Hoy)'
+                : 'Datos de Entrega — Pago al Recibir'}
             </h2>
           </div>
 
@@ -220,24 +246,28 @@ export function CheckoutModal({
                   ORDEN OFICIAL #{confirmedOrder.order_number}
                 </span>
                 <h3 className="text-xl sm:text-2xl font-bold text-white pt-2">
-                  ¡Tu pedido está listo para despacho!
+                  {confirmedOrder.has_preorder
+                    ? '¡Tu unidad quedó separada en lista prioritaria!'
+                    : '¡Tu pedido está listo para despacho!'}
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto">
                   Orden registrada por un total de{' '}
                   <span className="font-mono font-bold text-white">
                     {formatCOP(confirmedOrder.total_amount)}
                   </span>
-                  .
+                  {confirmedOrder.has_preorder ? ' (Pagas $0 hoy, cancelas cuando llegue).' : '.'}
                 </p>
               </div>
 
               <div className="p-3.5 rounded-xl bg-[#090D16] border border-white/10 text-left text-xs text-slate-300 space-y-1">
                 <p className="font-semibold text-sky-400 uppercase font-mono">
-                  Confirma tu despacho en WhatsApp:
+                  Confirma en nuestro WhatsApp:
                 </p>
                 <p>
                   Toca el botón verde para enviar tus datos pre-estructurados a nuestro WhatsApp y
-                  generar tu guía hoy mismo.
+                  {confirmedOrder.has_preorder
+                    ? ' agendar tu reserva prioritaria.'
+                    : ' coordinar tu entrega hoy mismo.'}
                 </p>
               </div>
 
@@ -247,7 +277,11 @@ export function CheckoutModal({
                 rel="noopener noreferrer"
                 className="w-full py-4 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
               >
-                <span>Enviar Pedido por WhatsApp</span>
+                <span>
+                  {confirmedOrder.has_preorder
+                    ? 'Confirmar Reserva en WhatsApp'
+                    : 'Enviar Pedido por WhatsApp'}
+                </span>
                 <ExternalLink className="w-4 h-4" />
               </a>
 
@@ -278,9 +312,15 @@ export function CheckoutModal({
                   <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
                     Tu Pedido ({cart.reduce((a, b) => a + b.quantity, 0)} und)
                   </span>
-                  <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-                    <Truck className="w-3.5 h-3.5" /> Envío Gratis
-                  </span>
+                  {hasPreorderItems ? (
+                    <span className="text-[11px] font-mono text-amber-300 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" /> Reserva Anticipada ($0 hoy)
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
+                      <Truck className="w-3.5 h-3.5" /> Envío Gratis
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-2.5 max-h-44 overflow-y-auto pr-1">
@@ -298,9 +338,16 @@ export function CheckoutModal({
                         <h4 className="text-xs font-semibold text-white truncate">
                           {item.product.title}
                         </h4>
-                        <p className="text-xs font-mono text-sky-400">
-                          {formatCOP(item.product.sale_price)}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span className="text-xs font-mono text-sky-400">
+                            {formatCOP(item.product.sale_price)}
+                          </span>
+                          {item.product.inventory_type === 'preorder' && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30">
+                              ⏳ En Camino
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-1">
@@ -344,10 +391,22 @@ export function CheckoutModal({
 
               {/* Customer Shipping Fields */}
               <div className="space-y-3.5">
-                <h3 className="text-xs font-mono uppercase tracking-widest text-sky-400 flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5" />
-                  1. Datos para la Transportadora
-                </h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-mono uppercase tracking-widest text-sky-400 flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5" />
+                    1. Datos de Entrega
+                  </h3>
+
+                  {!isLocalOcana && (
+                    <button
+                      type="button"
+                      onClick={selectOcanaQuick}
+                      className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-sky-400/15 text-sky-300 border border-sky-400/30 hover:bg-sky-400/25 transition cursor-pointer"
+                    >
+                      📍 Estoy en Ocaña
+                    </button>
+                  )}
+                </div>
 
                 {/* 1. Nombre y Apellidos */}
                 <div>
@@ -412,7 +471,7 @@ export function CheckoutModal({
                   </div>
                 </div>
 
-                {/* 3. Departamento y Municipio/Ciudad */}
+                {/* 3. Departamento y Municipio/Ciudad (Permite seleccionar o escribir la ciudad) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1">
@@ -432,22 +491,56 @@ export function CheckoutModal({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                      Municipio / Ciudad <span className="text-sky-400">*</span>
-                    </label>
-                    <select
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full px-3.5 py-3 rounded-xl bg-[#111827] border border-white/10 focus:border-sky-400 focus:outline-none text-base sm:text-sm text-white"
-                    >
-                      {availableCities.map((c) => (
-                        <option key={c} value={c} className="bg-[#0B0F19]">
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-slate-300">
+                        Municipio / Ciudad <span className="text-sky-400">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCustomCityMode((prev) => !prev)}
+                        className="text-[10px] font-mono text-sky-400 hover:underline cursor-pointer"
+                      >
+                        {customCityMode ? 'Elegir de lista' : 'Escribir ciudad'}
+                      </button>
+                    </div>
+
+                    {customCityMode ? (
+                      <input
+                        type="text"
+                        required
+                        placeholder="Escribe tu ciudad (Ej: Ocaña)"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        className="w-full px-3.5 py-3 rounded-xl bg-[#111827] border border-white/10 focus:border-sky-400 focus:outline-none text-base sm:text-sm text-white"
+                      />
+                    ) : (
+                      <select
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        className="w-full px-3.5 py-3 rounded-xl bg-[#111827] border border-white/10 focus:border-sky-400 focus:outline-none text-base sm:text-sm text-white"
+                      >
+                        {availableCities.map((c) => (
+                          <option key={c} value={c} className="bg-[#0B0F19]">
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
+
+                {/* 4.1. BANNER DE LOGÍSTICA LOCAL INTELIGENTE (OCAÑA) */}
+                {isLocalOcana && (
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-sky-500/15 via-cyan-500/15 to-emerald-500/15 border border-sky-400/45 shadow-[0_0_25px_rgba(56,189,248,0.18)]">
+                    <p className="text-xs sm:text-sm font-medium text-emerald-200 leading-relaxed">
+                      📍 <strong className="text-sky-300">¡Estás en Ocaña!</strong> Tu pedido tiene{' '}
+                      <strong className="text-emerald-300">
+                        Entrega Gratis en nuestra ruta diaria (5:15 PM a 7:30 PM)
+                      </strong>{' '}
+                      y pagas en efectivo o Nequi al recibirlo en tus manos.
+                    </p>
+                  </div>
+                )}
 
                 {/* 4. Dirección Exacta + Barrio + Punto de Referencia */}
                 <div>
@@ -461,7 +554,7 @@ export function CheckoutModal({
                       type="text"
                       required
                       autoComplete="street-address"
-                      placeholder="Ej: Calle 85 # 15-24 Apto 502"
+                      placeholder="Ej: Calle 11 # 14-32 Barrio El Centro"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#111827] border border-white/10 focus:border-sky-400 focus:outline-none text-base sm:text-sm text-white placeholder:text-slate-500"
@@ -477,7 +570,7 @@ export function CheckoutModal({
                   <input
                     type="text"
                     required
-                    placeholder="Ej: Barrio El Poblado, frente al supermercado D1"
+                    placeholder="Ej: Barrio Primavera, frente a la droguería / parque"
                     value={neighborhoodRef}
                     onChange={(e) => setNeighborhoodRef(e.target.value)}
                     className="w-full px-3.5 py-3 rounded-xl bg-[#111827] border border-white/10 focus:border-sky-400 focus:outline-none text-base sm:text-sm text-white placeholder:text-slate-500"
@@ -512,10 +605,14 @@ export function CheckoutModal({
                     <div className="flex-1">
                       <span className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
                         <Banknote className="w-4 h-4 text-emerald-400 shrink-0" />
-                        Pago Contraentrega (Efectivo en Casa)
+                        {isLocalOcana
+                          ? 'Pago al Recibir en Ocaña (Efectivo o Nequi en tus manos)'
+                          : 'Pago Contraentrega (Efectivo en Casa)'}
                       </span>
                       <p className="text-[11px] sm:text-xs text-slate-400 mt-1">
-                        Pagas en efectivo únicamente cuando recibas el paquete en tus manos.
+                        {hasPreorderItems
+                          ? 'Separas tu unidad con $0 hoy y pagas únicamente cuando llegue el lote.'
+                          : 'Pagas únicamente cuando recibas el paquete en tus manos.'}
                       </p>
                     </div>
                   </label>
@@ -614,7 +711,11 @@ export function CheckoutModal({
                 </div>
               )}
               <div className="flex justify-between items-baseline text-sm sm:text-base font-bold text-white">
-                <span>Total a Pagar ({city})</span>
+                <span>
+                  {hasPreorderItems
+                    ? `Valor al llegar (${city || 'Colombia'})`
+                    : `Total a Pagar (${city || 'Colombia'})`}
+                </span>
                 <span className="text-lg sm:text-xl font-mono text-sky-400">
                   {formatCOP(totalAmount)}
                 </span>
@@ -627,10 +728,16 @@ export function CheckoutModal({
               disabled={submitting}
               className="w-full py-4 px-5 rounded-xl bg-white active:bg-sky-400 hover:bg-sky-400 disabled:opacity-50 text-slate-950 font-bold text-xs sm:text-sm uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <ShieldCheck className="w-5 h-5 shrink-0" />
+              {hasPreorderItems ? (
+                <Clock className="w-5 h-5 shrink-0" />
+              ) : (
+                <ShieldCheck className="w-5 h-5 shrink-0" />
+              )}
               <span>
                 {submitting
-                  ? 'Procesando Pedido...'
+                  ? 'Guardando Pedido...'
+                  : hasPreorderItems
+                  ? 'Reservar Unidad (Pagas cuando llegue)'
                   : paymentMethod === 'cod'
                   ? 'Confirmar Pedido Contraentrega'
                   : 'Confirmar Pedido por WhatsApp'}

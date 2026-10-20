@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAuthenticatedAdmin } from '@/lib/auth';
 import { createProduct, getAdminProducts } from '@/lib/db';
 import { slugify } from '@/lib/format';
+import { InventoryType } from '@/types';
 
 export async function GET() {
   if (!(await isAuthenticatedAdmin())) {
@@ -31,6 +32,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const validInventoryType: InventoryType =
+      body.inventory_type === 'local'
+        ? 'local'
+        : body.inventory_type === 'preorder'
+        ? 'preorder'
+        : 'dropi';
+
     const product = createProduct({
       title: String(body.title).trim(),
       slug: body.slug ? slugify(String(body.slug)) : slugify(String(body.title)),
@@ -43,7 +51,11 @@ export async function POST(req: NextRequest) {
       compare_price: body.compare_price ? Number(body.compare_price) : null,
       supplier_cost: Number(body.supplier_cost || 0),
       estimated_shipping_cost: Number(body.estimated_shipping_cost || 0),
-      inventory_type: body.inventory_type === 'local' ? 'local' : 'dropi',
+      inventory_type: validInventoryType,
+      estimated_arrival_date:
+        validInventoryType === 'preorder' && body.estimated_arrival_date
+          ? String(body.estimated_arrival_date).trim()
+          : '',
       dropi_reference_url: body.dropi_reference_url ? String(body.dropi_reference_url) : '',
       stock: Number(body.stock ?? 10),
       category_id: String(body.category_id),

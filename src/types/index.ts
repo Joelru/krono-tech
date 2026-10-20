@@ -1,6 +1,24 @@
-export type InventoryType = 'dropi' | 'local';
+export type InventoryType = 'dropi' | 'local' | 'preorder';
 export type PaymentMethod = 'cod' | 'transfer';
 export type OrderStatus = 'pending' | 'shipped' | 'delivered' | 'cancelled';
+
+export type QuoteStatus = 'nueva' | 'cotizacion_enviada' | 'cerrada_vendida';
+export type QuoteEquipmentType = 'portatil' | 'pc_gamer';
+
+export interface CustomQuote {
+  id: string;
+  quote_number: string;
+  equipment_type: QuoteEquipmentType;
+  equipment_label: string;
+  primary_uses: string[];
+  budget_range: string;
+  comments: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_city: string;
+  status: QuoteStatus;
+  created_at: string;
+}
 
 export interface ProductSpec {
   label: string;
@@ -32,7 +50,8 @@ export interface Product {
   compare_price: number | null;
   supplier_cost: number; // PRIVATE - Admin only
   estimated_shipping_cost: number; // PRIVATE - Admin only
-  inventory_type: InventoryType;
+  inventory_type: InventoryType; // 'local' | 'dropi' | 'preorder'
+  estimated_arrival_date?: string; // Used when inventory_type === 'preorder' (e.g. "Llega la primera semana de Noviembre")
   dropi_reference_url?: string; // PRIVATE - Admin only
   stock: number;
   category_id: string;
@@ -61,6 +80,7 @@ export interface OrderItem {
   quantity: number;
   unit_price: number;
   inventory_type: InventoryType;
+  estimated_arrival_date?: string;
   // Private frozen costs recorded at purchase time (stored in DB, visible in Admin)
   frozen_supplier_cost?: number;
   frozen_shipping_cost?: number;
