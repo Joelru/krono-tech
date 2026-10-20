@@ -88,7 +88,7 @@ function getInitialDefaultState(): DatabaseState {
       headline: 'PRECISIÓN ABSOLUTA.',
       highlight_text: 'CERO LATENCIA.',
       subheadline:
-        'Periféricos gamer de alto rendimiento, portátiles a medida y repotenciación en Ocaña y toda Colombia. Pago Contraentrega.',
+        'Periféricos gamer de alto rendimiento y portátiles/PCs bajo pedido en Ocaña y toda Colombia. Pago Contraentrega.',
       cta_primary_text: 'Pedir Ahora — Pago en Casa',
       featured_product_slug: '',
       hero_image_url: '',

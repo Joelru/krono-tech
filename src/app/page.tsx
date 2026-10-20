@@ -22,7 +22,6 @@ import {
   MessageCircle,
   Package,
   Laptop,
-  Wrench,
   Clock,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
@@ -30,7 +29,6 @@ import { ProductCard } from '@/components/ProductCard';
 import { ProductDetailModal } from '@/components/ProductDetailModal';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { CustomPcQuoteSection } from '@/components/CustomPcQuoteSection';
-import { OptimizationServicesSection } from '@/components/OptimizationServicesSection';
 import { CartItem, Category, PublicProduct, StoreSettings } from '@/types';
 import { calculateDiscountPercent, formatCOP } from '@/lib/format';
 import { playSwitchSound } from '@/lib/sound-test';
@@ -246,15 +244,6 @@ export default function HomePage() {
                 <Laptop className="w-3.5 h-3.5 text-sky-400" />
                 <span>Portátiles & PCs Bajo Pedido</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => scrollToSection('servicios-ocana')}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono text-slate-300 hover:text-sky-300 hover:bg-white/5 border border-transparent hover:border-white/10 transition cursor-pointer"
-              >
-                <Wrench className="w-3.5 h-3.5 text-sky-400" />
-                <span>Servicios Ocaña</span>
-              </button>
             </nav>
 
             {/* Real-Time Search Bar (Desktop) */}
@@ -338,15 +327,6 @@ export default function HomePage() {
                 <Laptop className="w-3.5 h-3.5 text-sky-400" />
                 <span>💻 Portátiles & PCs Bajo Pedido</span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => scrollToSection('servicios-ocana')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono bg-[#111827] text-slate-300 border border-white/10 shrink-0"
-              >
-                <Wrench className="w-3.5 h-3.5 text-sky-400" />
-                <span>🛠️ Optimización & Upgrades (Ocaña)</span>
-              </button>
             </div>
           </div>
         </header>
@@ -376,7 +356,7 @@ export default function HomePage() {
 
                 <p className="text-xs sm:text-base text-slate-300 max-w-2xl leading-relaxed">
                   {settings?.hero_banner_config?.subheadline ||
-                    'Periféricos gamer de alto rendimiento, portátiles bajo pedido y repotenciación en Ocaña y toda Colombia. Pago Contraentrega.'}
+                    'Periféricos gamer de alto rendimiento y portátiles/PCs bajo pedido en Ocaña y toda Colombia. Pago Contraentrega.'}
                 </p>
 
                 {/* Star Product Box if at least 1 product exists */}
@@ -667,9 +647,6 @@ export default function HomePage() {
 
       {/* 1. NUEVA SECCIÓN: "PORTÁTILES & PCs GAMER A MEDIDA" (COTIZADOR INTERACTIVO DE 4 PASOS) */}
       <CustomPcQuoteSection whatsappNumber={settings?.whatsapp_number || '573000000000'} />
-
-      {/* 3. SECCIÓN: "OPTIMIZACIÓN Y REPOTENCIACIÓN DE EQUIPOS (OCAÑA)" */}
-      <OptimizationServicesSection whatsappNumber={settings?.whatsapp_number || '573000000000'} />
 
       {/* TRUST SECTION */}
       <section className="max-w-7xl mx-auto w-full px-3.5 sm:px-6 py-12">
